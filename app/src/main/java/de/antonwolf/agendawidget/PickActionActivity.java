@@ -73,17 +73,6 @@ public final class PickActionActivity extends Activity {
 
     private final static int REQUEST_PERMISSIONS_CODE = 100;
 
-    private final static Class<?>[] widgetClasses = new Class[]{
-            Widget2x1.class,
-            Widget3x1.class,
-            Widget3x2.class,
-            Widget3x3.class,
-            Widget4x1.class,
-            Widget4x2.class,
-            Widget4x3.class,
-            Widget4x4.class,
-    };
-
     /**
      * Tag for Log messages
      */
@@ -154,7 +143,7 @@ public final class PickActionActivity extends Activity {
     }
 
     private void updateWidgets() {
-        for (Class<?> c : widgetClasses) {
+        for (Class<?> c : WidgetBase.WIDGET_CLASSES) {
             final ComponentName name = new ComponentName(this, c);
             AppWidgetManager m = AppWidgetManager.getInstance(this);
             int[] widgetIds = m.getAppWidgetIds(name);
@@ -170,13 +159,9 @@ public final class PickActionActivity extends Activity {
                 Log.d(TAG, "PickActionActivity.updateWidgets: Sending Broadcast Intent " + broadcastIntent);
                 sendBroadcast(broadcastIntent);
 
-                for (int widgetId : widgetIds) {
-                    Intent serviceIntent = new Intent("update", Uri.parse("widget://" + widgetId),
-                            this, WidgetService.class);
-                    Log.d(TAG, "PickActionActivity.updateWidgets: Sending Intent " + serviceIntent);
-                    startService(serviceIntent);
-                }
             }
         }
+        Log.d(TAG, "PickActionActivity.updateWidgets: schedule widget update");
+        WidgetService.scheduleServiceOnce(this);
     }
 }

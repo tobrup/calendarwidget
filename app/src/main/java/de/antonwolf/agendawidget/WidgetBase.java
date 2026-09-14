@@ -44,6 +44,18 @@ import androidx.core.content.ContextCompat;
  *         Base class for each widget
  */
 abstract class WidgetBase extends AppWidgetProvider {
+
+	final static Class<?>[] WIDGET_CLASSES = new Class[]{
+			Widget2x1.class,
+			Widget3x1.class,
+			Widget3x2.class,
+			Widget3x3.class,
+			Widget4x1.class,
+			Widget4x2.class,
+			Widget4x3.class,
+			Widget4x4.class,
+	};
+
 	private ContentObserver calendarInstancesObserver;
 	static final String TAG = "AgendaWidget";
 
@@ -54,9 +66,12 @@ abstract class WidgetBase extends AppWidgetProvider {
 			ComponentName name = new ComponentName(context, this.getClass());
 			AppWidgetManager m = AppWidgetManager.getInstance(context);
 			int[] ids = m.getAppWidgetIds(name);
+			Log.i(TAG, "WidgetBase.onReceive(" + Arrays.toString(ids) + ")");
 			onUpdate(context, m, ids);
-		} else
+		} else {
+			Log.d(TAG, "WidgetBase.onReceive: without widgetIds");
 			super.onReceive(context, intent);
+		}
 	}
 
 	@Override
@@ -73,23 +88,20 @@ abstract class WidgetBase extends AppWidgetProvider {
 	
 	@Override
 	public void onDeleted(Context context, int[] appWidgetIds) {
+		Log.i(TAG, "WidgetBase.onDeleted(" + Arrays.toString(appWidgetIds) + ")");
 		for (final int widgetId : appWidgetIds)
 			WidgetInfo.delete(context, widgetId);
 	}
 
 	@Override
 	public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-		Log.d(TAG, "WidgetBase.onUpdate(" + Arrays.toString(ids) + ")");
+		Log.i(TAG, "WidgetBase.onUpdate(" + Arrays.toString(ids) + ")");
 
 		unregisterContentObserver(context);
 		registerContentObserver(context);
 
-		for (int appWidgetId : ids) {
-			Intent intent = new Intent("update", Uri.parse("widget://"
-					+ appWidgetId), context, WidgetService.class);
-			Log.d(TAG, "Sending " + intent);
-			context.startService(intent);
-		}
+		Log.d(TAG, "WidgetBase.onUpdate: schedule widget update");
+		WidgetService.scheduleServiceOnce(context);
 	}
 
 	private void unregisterContentObserver(Context context) {
@@ -112,9 +124,9 @@ abstract class WidgetBase extends AppWidgetProvider {
 			calendarInstancesObserver = new ContentObserver(new Handler()) {
 				@Override
 				public void onChange(boolean selfChange) {
-					Log.d(TAG, "ContentObserver.onChange()");
 					AppWidgetManager m = AppWidgetManager.getInstance(context);
 					int[] ids = m.getAppWidgetIds(name);
+					Log.i(TAG, "ContentObserver.onChange: update widgetIds "+Arrays.toString(ids));
 					onUpdate(context, m, ids);
 				}
 			};

@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2011 by Anton Wolf
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *  
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,19 +21,11 @@
  */
 package de.antonwolf.agendawidget;
 
-import java.util.ArrayList;
-import java.util.Formatter;
-import java.util.Iterator;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import android.Manifest;
-import android.app.AlarmManager;
-import android.app.IntentService;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -50,440 +42,528 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
-public final class WidgetService extends IntentService {
-	private final static class Event {
-		public boolean allDay = false;
-		public int color;
-		public int endDay;
-		public long endMillis;
-		public Time endTime;
-		public boolean hasAlarm;
-		public boolean isBirthday = false;
-		public String location;
-		public long startMillis;
-		public Time startTime;
-		public int startDay;
-		public String title;
+import java.util.ArrayList;
+import java.util.Formatter;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-		@Override
-		public boolean equals(Object o) {
-			if (!(o instanceof Event))
-				return false;
+public final class WidgetService extends Worker {
+    private final static class Event {
+        public boolean allDay = false;
+        public int color;
+        public int endDay;
+        public long endMillis;
+        public Time endTime;
+        public boolean hasAlarm;
+        public boolean isBirthday = false;
+        public String location;
+        public long startMillis;
+        public Time startTime;
+        public int startDay;
+        public String title;
 
-			final Event other = (Event) o;
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Event))
+                return false;
 
-			return isBirthday && other.isBirthday
-					&& other.startDay == this.startDay
-					&& other.title.equals(this.title);
-		}
-	}
+            final Event other = (Event) o;
 
-	private static final String TAG = "AgendaWidget";
-	private static final String THEAD_NAME = "WidgetServiceThead";
+            return isBirthday && other.isBirthday
+                    && other.startDay == this.startDay
+                    && other.title.equals(this.title);
+        }
+    }
 
-	private static long yesterdayStart;
-	private static long todayStart;
-	private static long tomorrowStart;
-	private static long dayAfterTomorrowStart;
-	private static long oneWeekFromNow;
-	private static long yearStart;
-	private static long yearEnd;
+    static void scheduleServiceOnce(Context context) {
+        Log.i(TAG, "WidgetService.scheduleServiceOnce");
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(WidgetService.class).build();
+        WorkManager.getInstance(context).enqueueUniqueWork(
+                "calendar-widget-refresh",
+                ExistingWorkPolicy.REPLACE,
+                request
+        );
+    }
 
-	private static Pattern[] birthdayPatterns;
+    static void scheduleServiceWithDelay(Context context, long delay, int widgetId) {
+        Log.i(TAG, "WidgetService.scheduleServiceWithDelay" + delay + " ms");
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(WidgetService.class)
+                .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                .build();
+        WorkManager.getInstance(context).enqueueUniqueWork(
+                "calendar-widget-refresh-delayed-"+widgetId,
+                ExistingWorkPolicy.REPLACE,
+                request
+        );
+    }
 
-	private final static String CURSOR_FORMAT = "content://com.android.calendar/instances/when/%1$s/%2$s";
-	private final static long SEARCH_DURATION = 2 * DateUtils.YEAR_IN_MILLIS;
-	private final static String CURSOR_SORT = "begin ASC, end DESC, title ASC";
-	private final static int COL_TITLE = 0;
-	private final static int COL_COLOR = 1;
-	private final static int COL_LOCATION = 2;
-	private final static int COL_ALL_DAY = 3;
-	private final static int COL_START_DAY = 4;
-	private final static int COL_END_DAY = 5;
-	private final static int COL_END_MILLIS = 6;
-	private final static int COL_HAS_ALARM = 7;
-	private final static int COL_CALENDAR = 8;
-	private final static int COL_START_MILLIS = 9;
+    private static final String TAG = "AgendaWidget";
 
-	private final static String COLOR_DOT = "■\t";
-	private final static String COLOR_HIDDEN = "\t";
-	private final static String SEPARATOR_COMMA = ", ";
+    private static long yesterdayStart;
+    private static long todayStart;
+    private static long tomorrowStart;
+    private static long dayAfterTomorrowStart;
+    private static long oneWeekFromNow;
+    private static long yearStart;
+    private static long yearEnd;
 
-	private final static long DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
+    private static Pattern[] birthdayPatterns;
 
-	private final static Pattern IS_EMPTY_PATTERN = Pattern.compile("^\\s*$");
-	private final static int DATETIME_COLOR = 0xb8ffffff;
+    private final static String CURSOR_FORMAT = "content://com.android.calendar/instances/when/%1$s/%2$s";
+    private final static long SEARCH_DURATION = 2 * DateUtils.YEAR_IN_MILLIS;
+    private final static String CURSOR_SORT = "begin ASC, end DESC, title ASC";
+    private final static int COL_TITLE = 0;
+    private final static int COL_COLOR = 1;
+    private final static int COL_LOCATION = 2;
+    private final static int COL_ALL_DAY = 3;
+    private final static int COL_START_DAY = 4;
+    private final static int COL_END_DAY = 5;
+    private final static int COL_END_MILLIS = 6;
+    private final static int COL_HAS_ALARM = 7;
+    private final static int COL_CALENDAR = 8;
+    private final static int COL_START_MILLIS = 9;
 
-	public WidgetService() {
-		super(THEAD_NAME);
-	}
+    private final static String COLOR_DOT = "■\t";
+    private final static String COLOR_HIDDEN = "\t";
+    private final static String SEPARATOR_COMMA = ", ";
 
-	@Override
-	protected synchronized void onHandleIntent(final Intent intent) {
-		Log.d(TAG, "Handling " + intent);
+    private final static long DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
 
-		final int widgetId = Integer.parseInt(intent.getData().getHost());
-		final AppWidgetManager manager = AppWidgetManager.getInstance(this);
-		final AppWidgetProviderInfo widgetInfo = manager
-				.getAppWidgetInfo(widgetId);
+    private final static Pattern IS_EMPTY_PATTERN = Pattern.compile("^\\s*$");
+    private final static int DATETIME_COLOR = 0xb8ffffff;
 
-		if (null == widgetInfo) {
-			Log.d(TAG, "Invalid widget ID!");
-			return;
-		}
+    public WidgetService(@NonNull Context context, @NonNull WorkerParameters params) {
+        super(context, params);
+    }
 
-		boolean hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
-		if (!hasPermissions) {
-			Log.w(TAG, "onHandleIntent: no permissions granted");
-			return;
-		}
+    @NonNull
+    @Override
+    public Result doWork() {
+        Log.d(TAG, "WidgetService.doWork");
 
-		computeTimeRanges();
-		final WidgetInfo info = new WidgetInfo(widgetId, this);
-		final int maxLines = Integer.parseInt(info.lines);
-		final List<Event> birthdayEvents = new ArrayList<Event>(maxLines * 2);
-		final List<Event> agendaEvents = new ArrayList<Event>(maxLines);
+        List<Integer> widgetIds = collectWidgetIds();
+        if (widgetIds.isEmpty()) {
+            Log.d(TAG, "WidgetService.doWork: no widgets active");
+            return Result.success();
+        }
 
-		Cursor cursor = null;
-		try {
-			cursor = getCursor();
+        boolean hasPermissions = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
+        if (!hasPermissions) {
+            Log.w(TAG, "WidgetService.doWork: no permissions granted");
+        }
 
-			while (true) {
-				boolean widgetFull = Math.ceil(birthdayEvents.size() / 2.0)
-						+ agendaEvents.size() >= maxLines;
-				boolean evenBirthdayCount = birthdayEvents.size() % 2 == 0;
-				if (widgetFull && evenBirthdayCount)
-					break; // widget is full
+        computeTimeRanges();
+        for (int widgetId : widgetIds) {
+            Log.d(TAG, "WidgetService.doWork: update widgetId " + widgetId);
+            if (hasPermissions) {
+                updateWidget(widgetId);
+            }else {
+                updateWidgetNoPermissions(widgetId);
+            }
+        }
+        return Result.success();
+    }
 
-				Event event = null;
-				while (event == null && !cursor.isAfterLast())
-					event = readEvent(cursor, info);
-				if (event == null)
-					break; // no further events
+    private void updateWidget(int widgetId) {
+        final AppWidgetManager manager = AppWidgetManager.getInstance(getApplicationContext());
+        final AppWidgetProviderInfo widgetInfo = manager.getAppWidgetInfo(widgetId);
 
-				if (event.isBirthday) {
-					if (!birthdayEvents.contains(event))
-						birthdayEvents.add(event);
-				} else if (!widgetFull)
-					agendaEvents.add(event);
-			}
-		} finally {
-			if (cursor != null)
-				cursor.close();
-		}
+        final WidgetInfo info = new WidgetInfo(widgetId, getApplicationContext());
+        final int maxLines = Integer.parseInt(info.lines);
+        final List<Event> birthdayEvents = new ArrayList<Event>(maxLines * 2);
+        final List<Event> agendaEvents = new ArrayList<Event>(maxLines);
 
-		final String packageName = getPackageName();
-		final RemoteViews widget = new RemoteViews(getPackageName(),
-				widgetInfo.initialLayout);
-		widget.removeAllViews(R.id.widget);
-		widget.setOnClickPendingIntent(R.id.widget,
-				getOnClickPendingIntent(widgetId));
+        Cursor cursor = null;
+        try {
+            cursor = getCursor();
 
-		final boolean calendarColor = info.calendarColor;
+            while (true) {
+                boolean widgetFull = Math.ceil(birthdayEvents.size() / 2.0)
+                        + agendaEvents.size() >= maxLines;
+                boolean evenBirthdayCount = birthdayEvents.size() % 2 == 0;
+                if (widgetFull && evenBirthdayCount)
+                    break; // widget is full
 
-		Iterator<Event> bdayIterator = birthdayEvents.iterator();
-		while (bdayIterator.hasNext()) {
-			final RemoteViews view = new RemoteViews(packageName,
-					R.layout.birthdays);
-			view.setTextViewText(R.id.birthday1_text,
-					formatEventText(bdayIterator.next(), calendarColor, info));
-			if (bdayIterator.hasNext())
-				view.setTextViewText(R.id.birthday2_text,
-						formatEventText(bdayIterator.next(), false, info));
-			else
-				view.setTextViewText(R.id.birthday2_text, "");
-			widget.addView(R.id.widget, view);
-		}
+                Event event = null;
+                while (event == null && !cursor.isAfterLast())
+                    event = readEvent(cursor, info);
+                if (event == null)
+                    break; // no further events
 
-		for (Event event : agendaEvents) {
-			final RemoteViews view = new RemoteViews(packageName,
-					R.layout.event);
-			view.setTextViewText(R.id.event_text,
-					formatEventText(event, calendarColor, info));
-			int alarmFlag = event.hasAlarm ? View.VISIBLE : View.GONE;
-			view.setViewVisibility(R.id.event_alarm, alarmFlag);
-			widget.addView(R.id.widget, view);
-		}
+                if (event.isBirthday) {
+                    if (!birthdayEvents.contains(event))
+                        birthdayEvents.add(event);
+                } else if (!widgetFull)
+                    agendaEvents.add(event);
+            }
+        } finally {
+            if (cursor != null)
+                cursor.close();
+        }
 
-		final int opacityPercent = (int) (100 * info.opacity);
+        final String packageName = getApplicationContext().getPackageName();
+        final RemoteViews widget = new RemoteViews(getApplicationContext().getPackageName(),
+                widgetInfo.initialLayout);
+        widget.removeAllViews(R.id.widget);
+        widget.setOnClickPendingIntent(R.id.widget,
+                getOnClickPendingIntent(widgetId));
+
+        final boolean calendarColor = info.calendarColor;
+
+        Iterator<Event> bdayIterator = birthdayEvents.iterator();
+        while (bdayIterator.hasNext()) {
+            final RemoteViews view = new RemoteViews(packageName,
+                    R.layout.birthdays);
+            view.setTextViewText(R.id.birthday1_text,
+                    formatEventText(bdayIterator.next(), calendarColor, info));
+            if (bdayIterator.hasNext())
+                view.setTextViewText(R.id.birthday2_text,
+                        formatEventText(bdayIterator.next(), false, info));
+            else
+                view.setTextViewText(R.id.birthday2_text, "");
+            widget.addView(R.id.widget, view);
+        }
+
+        for (Event event : agendaEvents) {
+            final RemoteViews view = new RemoteViews(packageName,
+                    R.layout.event);
+            view.setTextViewText(R.id.event_text,
+                    formatEventText(event, calendarColor, info));
+            int alarmFlag = event.hasAlarm ? View.VISIBLE : View.GONE;
+            view.setViewVisibility(R.id.event_alarm, alarmFlag);
+            widget.addView(R.id.widget, view);
+        }
+
+        final int opacityPercent = (int) (100 * info.opacity);
         widget.setInt(R.id.background, "setImageLevel", opacityPercent);
 
-		manager.updateAppWidget(widgetId, widget);
-		scheduleNextUpdate(agendaEvents, intent);
-	}
+        manager.updateAppWidget(widgetId, widget);
+        scheduleNextUpdate(agendaEvents, widgetId);
+    }
 
-	private void scheduleNextUpdate(final List<Event> search,
-			final Intent intent) {
-		long nextUpdate = tomorrowStart;
-		for (Event event : search)
-			if (!event.allDay && event.endMillis < nextUpdate)
-				nextUpdate = event.endMillis;
+    private void updateWidgetNoPermissions(int widgetId) {
+        final AppWidgetManager manager = AppWidgetManager.getInstance(getApplicationContext());
+        final AppWidgetProviderInfo widgetInfo = manager.getAppWidgetInfo(widgetId);
 
-		PendingIntent pending = PendingIntent.getService(this, 0, intent, 0);
-		AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-		alarmManager.cancel(pending);
-		alarmManager.set(AlarmManager.RTC, nextUpdate + 1000, pending);
-	}
+        final String packageName = getApplicationContext().getPackageName();
+        final RemoteViews widget = new RemoteViews(getApplicationContext().getPackageName(),
+                widgetInfo.initialLayout);
+        widget.removeAllViews(R.id.widget);
+        widget.setOnClickPendingIntent(R.id.widget,
+                getOnClickPendingIntent(widgetId));
 
-	private Event readEvent(final Cursor cursor, final WidgetInfo info) {
-		if (!cursor.moveToNext())
-			return null; // no next item
-		if (!info.calendars.get(cursor.getInt(COL_CALENDAR)).enabled)
-			return null; // Calendar is disabled
+        final RemoteViews view = new RemoteViews(packageName,
+                R.layout.event);
+        view.setTextViewText(R.id.event_text, "Missing Permissions");
+        widget.addView(R.id.widget, view);
 
-		final Event event = new Event();
+        widget.setInt(R.id.background, "setImageLevel", 100);
 
-		if (1 == cursor.getInt(COL_ALL_DAY))
-			event.allDay = true;
+        manager.updateAppWidget(widgetId, widget);
+    }
 
-		event.endDay = cursor.getInt(COL_END_DAY);
-		event.endTime = new Time();
+    private List<Integer> collectWidgetIds() {
+        List<Integer> allWidgetIds = new ArrayList();
+        for (Class<?> c : WidgetBase.WIDGET_CLASSES) {
+            final ComponentName name = new ComponentName(getApplicationContext(), c);
+            AppWidgetManager m = AppWidgetManager.getInstance(getApplicationContext());
+            int[] widgetIds = m.getAppWidgetIds(name);
+            for (int i : widgetIds) {
+                allWidgetIds.add(i);
+            }
+        }
+        return allWidgetIds;
+    }
 
-		if (event.allDay) {
-			event.endTime.timezone = Time.getCurrentTimezone();
-			event.endMillis = event.endTime.setJulianDay(event.endDay);
-		} else {
-			event.endMillis = cursor.getLong(COL_END_MILLIS);
-			event.endTime.set(event.endMillis);
-		}
-		if ((event.allDay && event.endMillis < todayStart)
-				|| (!event.allDay && event.endMillis <= System
-						.currentTimeMillis()))
-			return null; // Skip events in the past
 
-		event.title = cursor.getString(COL_TITLE);
-		if (event.title == null)
-			event.title = "";
+    private void scheduleNextUpdate(final List<Event> search, int widgetId) {
+        long nextUpdate = tomorrowStart;
+        for (Event event : search) {
+            if (!event.allDay && event.endMillis < nextUpdate) {
+                nextUpdate = event.endMillis;
+            }
+        }
 
-		if (event.allDay && !info.birthdays.equals(WidgetInfo.BIRTHDAY_NORMAL))
-			for (Pattern pattern : getBirthdayPatterns()) {
-				Matcher matcher = pattern.matcher(event.title);
-				if (!matcher.find())
-					continue;
-				event.title = matcher.group(1);
-				event.isBirthday = true;
-				break;
-			}
+        final Time now = new Time();
+        now.setToNow();
+        long nowMillis = now.toMillis(false);
+        long delay = nextUpdate - nowMillis;
+        if (delay > 0) {
+            Log.d(TAG, "WidgetService.scheduleNextUpdate: delay: " + delay + ", now: " + now);
+            scheduleServiceWithDelay(getApplicationContext(), delay + 1000, widgetId);
+        } else {
+            Log.w(TAG, "WidgetService.scheduleNextUpdate: delay would be " + delay + ", now: " + now);
+        }
+    }
 
-		// Skip birthday events if necessary
-		if (event.isBirthday && info.birthdays.equals(WidgetInfo.BIRTHDAY_HIDE))
-			return null;
+    private Event readEvent(final Cursor cursor, final WidgetInfo info) {
+        if (!cursor.moveToNext())
+            return null; // no next item
+        if (!info.calendars.get(cursor.getInt(COL_CALENDAR)).enabled)
+            return null; // Calendar is disabled
 
-		event.startDay = cursor.getInt(COL_START_DAY);
-		event.startTime = new Time();
-		if (event.allDay) {
-			event.startTime.timezone = event.endTime.timezone;
-			event.startMillis = event.startTime.setJulianDay(event.startDay);
-		} else {
-			event.startMillis = cursor.getLong(COL_START_MILLIS);
-			event.startTime.set(event.startMillis);
-		}
+        final Event event = new Event();
 
-		event.location = cursor.getString(COL_LOCATION);
-		if (event.location != null
-				&& IS_EMPTY_PATTERN.matcher(event.location).find())
-			event.location = null;
+        if (1 == cursor.getInt(COL_ALL_DAY))
+            event.allDay = true;
 
-		event.color = cursor.getInt(COL_COLOR);
-		event.hasAlarm = cursor.getInt(COL_HAS_ALARM) == 1;
-		return event;
-	}
+        event.endDay = cursor.getInt(COL_END_DAY);
+        event.endTime = new Time();
 
-	private PendingIntent getOnClickPendingIntent(final int widgetId) {
-		final Intent pickAction = new Intent("pick", Uri.parse("widget://"
-				+ widgetId), this, PickActionActivity.class);
-		pickAction.putExtra(PickActionActivity.EXTRA_WIDGET_ID, widgetId);
-		return PendingIntent.getActivity(this, 0, pickAction, 0);
-	}
+        if (event.allDay) {
+            event.endTime.timezone = Time.getCurrentTimezone();
+            event.endMillis = event.endTime.setJulianDay(event.endDay);
+        } else {
+            event.endMillis = cursor.getLong(COL_END_MILLIS);
+            event.endTime.set(event.endMillis);
+        }
+        if ((event.allDay && event.endMillis < todayStart)
+                || (!event.allDay && event.endMillis <= System
+                .currentTimeMillis()))
+            return null; // Skip events in the past
 
-	private Cursor getCursor() {
-		final long start = todayStart - 1000 * 60 * 60 * 24;
-		final long end = start + SEARCH_DURATION;
-		
-		final String[] projection;
-		
-		if (Build.VERSION.SDK_INT < 14)
-			projection = new String[] { "title",
-			"color", "eventLocation", "allDay", "startDay", "endDay", "end",
-			"hasAlarm", "calendar_id", "begin" };
-		else
-			projection = new String[] { "title",
-				"calendar_color", "eventLocation", "allDay", "startDay", "endDay", "end",
-				"hasAlarm", "calendar_id", "begin" };
-		
-		final String uriString = String.format(CURSOR_FORMAT, start, end);
-		return getContentResolver().query(Uri.parse(uriString),
-				projection, null, null, CURSOR_SORT);
-	}
+        event.title = cursor.getString(COL_TITLE);
+        if (event.title == null)
+            event.title = "";
 
-	private void computeTimeRanges() {
-		final Time now = new Time();
-		now.setToNow();
-		final int julianDay = Time.getJulianDay(System.currentTimeMillis(),
-				now.gmtoff);
+        if (event.allDay && !info.birthdays.equals(WidgetInfo.BIRTHDAY_NORMAL))
+            for (Pattern pattern : getBirthdayPatterns()) {
+                Matcher matcher = pattern.matcher(event.title);
+                if (!matcher.find())
+                    continue;
+                event.title = matcher.group(1);
+                event.isBirthday = true;
+                break;
+            }
 
-		yearStart = now.setJulianDay(julianDay - now.yearDay);
-		now.year++;
-		yearEnd = now.toMillis(false);
-		yesterdayStart = now.setJulianDay(julianDay - 1);
-		todayStart = now.setJulianDay(julianDay);
-		tomorrowStart = now.setJulianDay(julianDay + 1);
-		dayAfterTomorrowStart = now.setJulianDay(julianDay + 2);
-		oneWeekFromNow = now.setJulianDay(julianDay + 8);
-	}
+        // Skip birthday events if necessary
+        if (event.isBirthday && info.birthdays.equals(WidgetInfo.BIRTHDAY_HIDE))
+            return null;
 
-	private synchronized Pattern[] getBirthdayPatterns() {
-		if (birthdayPatterns == null) {
-			String[] strings = getResources().getStringArray(
-					R.array.birthday_patterns);
-			birthdayPatterns = new Pattern[strings.length];
-			for (int i = 0; i < strings.length; i++) {
-				birthdayPatterns[i] = Pattern.compile(strings[i]);
-			}
-		}
-		return birthdayPatterns;
-	}
+        event.startDay = cursor.getInt(COL_START_DAY);
+        event.startTime = new Time();
+        if (event.allDay) {
+            event.startTime.timezone = event.endTime.timezone;
+            event.startMillis = event.startTime.setJulianDay(event.startDay);
+        } else {
+            event.startMillis = cursor.getLong(COL_START_MILLIS);
+            event.startTime.set(event.startMillis);
+        }
 
-	private CharSequence formatEventText(final Event event,
-			final boolean showColor, final WidgetInfo info) {
-		if (event == null)
-			return "";
+        event.location = cursor.getString(COL_LOCATION);
+        if (event.location != null
+                && IS_EMPTY_PATTERN.matcher(event.location).find())
+            event.location = null;
 
-		final SpannableStringBuilder builder = new SpannableStringBuilder();
+        event.color = cursor.getInt(COL_COLOR);
+        event.hasAlarm = cursor.getInt(COL_HAS_ALARM) == 1;
+        return event;
+    }
 
-		if (showColor) {
-			if (event.isBirthday)
-				builder.append(COLOR_HIDDEN);
-			else {
-				builder.append(COLOR_DOT);
-				builder.setSpan(new ForegroundColorSpan(event.color), 0, 1,
-						Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-			}
-		}
+    private PendingIntent getOnClickPendingIntent(final int widgetId) {
+        final Intent pickAction = new Intent("pick", Uri.parse("widget://"
+                + widgetId), getApplicationContext(), PickActionActivity.class);
+        pickAction.putExtra(PickActionActivity.EXTRA_WIDGET_ID, widgetId);
+        return PendingIntent.getActivity(getApplicationContext(), 0, pickAction, PendingIntent.FLAG_IMMUTABLE);
+    }
 
-		final int timeStartPos = builder.length();
-		formatTime(builder, event, info);
-		builder.append(' ');
-		final int timeEndPos = builder.length();
-		builder.setSpan(new ForegroundColorSpan(DATETIME_COLOR), timeStartPos,
-				timeEndPos, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    private Cursor getCursor() {
+        final long start = todayStart - 1000 * 60 * 60 * 24;
+        final long end = start + SEARCH_DURATION;
 
-		builder.append(event.title);
-		final int titleEndPos = builder.length();
-		builder.setSpan(new ForegroundColorSpan(0xffffffff), timeEndPos,
-				titleEndPos, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        final String[] projection;
 
-		if (event.location != null) {
-			builder.append(SEPARATOR_COMMA);
-			builder.append(event.location);
-			builder.setSpan(new ForegroundColorSpan(DATETIME_COLOR),
-					titleEndPos, builder.length(),
-					Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-		}
+        if (Build.VERSION.SDK_INT < 14)
+            projection = new String[]{"title",
+                    "color", "eventLocation", "allDay", "startDay", "endDay", "end",
+                    "hasAlarm", "calendar_id", "begin"};
+        else
+            projection = new String[]{"title",
+                    "calendar_color", "eventLocation", "allDay", "startDay", "endDay", "end",
+                    "hasAlarm", "calendar_id", "begin"};
 
-		final float size = Integer.parseInt(info.size) / 100f;
-		builder.setSpan(new RelativeSizeSpan(size), 0, builder.length(), 0);
+        final String uriString = String.format(CURSOR_FORMAT, start, end);
+        return getApplicationContext().getContentResolver().query(Uri.parse(uriString),
+                projection, null, null, CURSOR_SORT);
+    }
 
-		return builder;
-	}
+    private void computeTimeRanges() {
+        final Time now = new Time();
+        now.setToNow();
+        final int julianDay = Time.getJulianDay(System.currentTimeMillis(),
+                now.gmtoff);
 
-	private void formatTime(final SpannableStringBuilder builder,
-			final Event event, final WidgetInfo info) {
-		final Formatter formatter = new Formatter(builder);
+        yearStart = now.setJulianDay(julianDay - now.yearDay);
+        now.year++;
+        yearEnd = now.toMillis(false);
+        yesterdayStart = now.setJulianDay(julianDay - 1);
+        todayStart = now.setJulianDay(julianDay);
+        tomorrowStart = now.setJulianDay(julianDay + 1);
+        dayAfterTomorrowStart = now.setJulianDay(julianDay + 2);
+        oneWeekFromNow = now.setJulianDay(julianDay + 8);
+    }
 
-		final boolean isStartToday = (todayStart <= event.startMillis && event.startMillis <= tomorrowStart);
-		final boolean isEndToday = (todayStart <= event.endMillis && event.endMillis <= tomorrowStart);
-		final boolean showStartDay = !isStartToday || !isEndToday
-				|| event.allDay;
+    private synchronized Pattern[] getBirthdayPatterns() {
+        if (birthdayPatterns == null) {
+            String[] strings = getApplicationContext().getResources().getStringArray(
+                    R.array.birthday_patterns);
+            birthdayPatterns = new Pattern[strings.length];
+            for (int i = 0; i < strings.length; i++) {
+                birthdayPatterns[i] = Pattern.compile(strings[i]);
+            }
+        }
+        return birthdayPatterns;
+    }
 
-		// all-Day events
-		if (event.allDay) {
-			if (showStartDay)
-				appendDay(formatter, builder, event.startMillis,
-						event.startTime, info);
+    private CharSequence formatEventText(final Event event,
+                                         final boolean showColor, final WidgetInfo info) {
+        if (event == null)
+            return "";
 
-			if (event.startDay != event.endDay) {
-				builder.append('-');
-				appendDay(formatter, builder, event.endMillis, event.endTime,
-						info);
-			}
-			return;
-		}
+        final SpannableStringBuilder builder = new SpannableStringBuilder();
 
-		// events with no duration
-		if (!info.endTime || event.startMillis == event.endMillis) {
-			if (showStartDay) {
-				appendDay(formatter, builder, event.startMillis,
-						event.startTime, info);
-				builder.append(' ');
-			}
-			appendHour(formatter, builder, event.startMillis, info);
-			return;
-		}
+        if (showColor) {
+            if (event.isBirthday)
+                builder.append(COLOR_HIDDEN);
+            else {
+                builder.append(COLOR_DOT);
+                builder.setSpan(new ForegroundColorSpan(event.color), 0, 1,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
 
-		// events with duration
-		if (showStartDay) {
-			appendDay(formatter, builder, event.startMillis, event.startTime,
-					info);
-			builder.append(' ');
-		}
-		appendHour(formatter, builder, event.startMillis, info);
-		builder.append('-');
+        final int timeStartPos = builder.length();
+        formatTime(builder, event, info);
+        builder.append(' ');
+        final int timeEndPos = builder.length();
+        builder.setSpan(new ForegroundColorSpan(DATETIME_COLOR), timeStartPos,
+                timeEndPos, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-		if (Math.abs(event.endMillis - event.startMillis) > DAY_IN_MILLIS) {
-			appendDay(formatter, builder, event.endMillis, event.endTime, info);
-			builder.append(' ');
-		}
-		appendHour(formatter, builder, event.endMillis, info);
-	}
+        builder.append(event.title);
+        final int titleEndPos = builder.length();
+        builder.setSpan(new ForegroundColorSpan(0xffffffff), timeEndPos,
+                titleEndPos, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-	private void appendHour(final Formatter formatter,
-			final SpannableStringBuilder builder, final long time,
-			WidgetInfo info) {
-		if (info.twentyfourHours)
-			formatter.format("%1$tk:%1$tM", time);
-		else {
-			formatter.format("%1$tl:%1$tM", time);
-			int start = builder.length();
-			formatter.format("%1$tp", time);
-			int end = builder.length();
-			builder.setSpan(new RelativeSizeSpan(0.7f), start, end, 0);
-		}
-	}
+        if (event.location != null) {
+            builder.append(SEPARATOR_COMMA);
+            builder.append(event.location);
+            builder.setSpan(new ForegroundColorSpan(DATETIME_COLOR),
+                    titleEndPos, builder.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
 
-	private void appendDay(final Formatter formatter,
-			final SpannableStringBuilder builder, final long time,
-			final Time day, final WidgetInfo info) {
-		final boolean tomorrowYesterday = info.tomorrowYesterday;
-		final long specialStart = tomorrowYesterday ? yesterdayStart
-				: todayStart;
-		final long specialEnd = tomorrowYesterday ? dayAfterTomorrowStart
-				: tomorrowStart;
-		final boolean weekday = info.weekday;
-		final long weekEnd = weekday ? oneWeekFromNow : tomorrowStart;
+        final float size = Integer.parseInt(info.size) / 100f;
+        builder.setSpan(new RelativeSizeSpan(size), 0, builder.length(), 0);
 
-		if (specialStart <= time && time < specialEnd) {
-			final int from = builder.length();
-			if (time < todayStart)
-				builder.append(getResources().getString(
-						R.string.format_yesterday));
-			else if (time < tomorrowStart)
-				builder.append(getResources().getString(R.string.format_today));
-			else
-				builder.append(getResources().getString(
-						R.string.format_tomorrow));
+        return builder;
+    }
 
-			final RelativeSizeSpan smaller = new RelativeSizeSpan(0.7f);
-			builder.setSpan(smaller, from, builder.length(), 0);
-		} else if (todayStart <= time && time < weekEnd) // this week?
-			builder.append(getResources().getStringArray(
-					R.array.format_day_of_week)[day.weekDay]);
-		else if (yearStart <= time && time < yearEnd) // this year?
-			formatter.format(info.dateFormat.shortFormat, time);
-		else
-			// not this year
-			formatter.format(info.dateFormat.longFormat, time);
-	}
+    private void formatTime(final SpannableStringBuilder builder,
+                            final Event event, final WidgetInfo info) {
+        final Formatter formatter = new Formatter(builder);
+
+        final boolean isStartToday = (todayStart <= event.startMillis && event.startMillis <= tomorrowStart);
+        final boolean isEndToday = (todayStart <= event.endMillis && event.endMillis <= tomorrowStart);
+        final boolean showStartDay = !isStartToday || !isEndToday
+                || event.allDay;
+
+        // all-Day events
+        if (event.allDay) {
+            if (showStartDay)
+                appendDay(formatter, builder, event.startMillis,
+                        event.startTime, info);
+
+            if (event.startDay != event.endDay) {
+                builder.append('-');
+                appendDay(formatter, builder, event.endMillis, event.endTime,
+                        info);
+            }
+            return;
+        }
+
+        // events with no duration
+        if (!info.endTime || event.startMillis == event.endMillis) {
+            if (showStartDay) {
+                appendDay(formatter, builder, event.startMillis,
+                        event.startTime, info);
+                builder.append(' ');
+            }
+            appendHour(formatter, builder, event.startMillis, info);
+            return;
+        }
+
+        // events with duration
+        if (showStartDay) {
+            appendDay(formatter, builder, event.startMillis, event.startTime,
+                    info);
+            builder.append(' ');
+        }
+        appendHour(formatter, builder, event.startMillis, info);
+        builder.append('-');
+
+        if (Math.abs(event.endMillis - event.startMillis) > DAY_IN_MILLIS) {
+            appendDay(formatter, builder, event.endMillis, event.endTime, info);
+            builder.append(' ');
+        }
+        appendHour(formatter, builder, event.endMillis, info);
+    }
+
+    private void appendHour(final Formatter formatter,
+                            final SpannableStringBuilder builder, final long time,
+                            WidgetInfo info) {
+        if (info.twentyfourHours)
+            formatter.format("%1$tk:%1$tM", time);
+        else {
+            formatter.format("%1$tl:%1$tM", time);
+            int start = builder.length();
+            formatter.format("%1$tp", time);
+            int end = builder.length();
+            builder.setSpan(new RelativeSizeSpan(0.7f), start, end, 0);
+        }
+    }
+
+    private void appendDay(final Formatter formatter,
+                           final SpannableStringBuilder builder, final long time,
+                           final Time day, final WidgetInfo info) {
+        final boolean tomorrowYesterday = info.tomorrowYesterday;
+        final long specialStart = tomorrowYesterday ? yesterdayStart
+                : todayStart;
+        final long specialEnd = tomorrowYesterday ? dayAfterTomorrowStart
+                : tomorrowStart;
+        final boolean weekday = info.weekday;
+        final long weekEnd = weekday ? oneWeekFromNow : tomorrowStart;
+
+        if (specialStart <= time && time < specialEnd) {
+            final int from = builder.length();
+            if (time < todayStart)
+                builder.append(getApplicationContext().getResources().getString(
+                        R.string.format_yesterday));
+            else if (time < tomorrowStart)
+                builder.append(getApplicationContext().getResources().getString(R.string.format_today));
+            else
+                builder.append(getApplicationContext().getResources().getString(
+                        R.string.format_tomorrow));
+
+            final RelativeSizeSpan smaller = new RelativeSizeSpan(0.7f);
+            builder.setSpan(smaller, from, builder.length(), 0);
+        } else if (todayStart <= time && time < weekEnd) // this week?
+            builder.append(getApplicationContext().getResources().getStringArray(
+                    R.array.format_day_of_week)[day.weekDay]);
+        else if (yearStart <= time && time < yearEnd) // this year?
+            formatter.format(info.dateFormat.shortFormat, time);
+        else
+            // not this year
+            formatter.format(info.dateFormat.longFormat, time);
+    }
 }
