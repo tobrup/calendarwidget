@@ -19,8 +19,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+package de.antonwolf.agendawidget
 
-package de.antonwolf.agendawidget;
-
-public final class Widget3x3 extends WidgetBase {
-}
+class Widget3x3 : WidgetBase()

@@ -19,122 +19,117 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+package de.antonwolf.agendawidget
 
-package de.antonwolf.agendawidget;
-
-import java.util.Arrays;
-
-import android.Manifest;
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.ContentObserver;
-import android.net.Uri;
-import android.os.Handler;
-import android.util.Log;
-
-import androidx.core.content.ContextCompat;
+import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Handler
+import android.util.Log
+import androidx.core.content.ContextCompat
 
 /**
  * @author Anton Wolf
  * 
- *         Base class for each widget
+ * Base class for each widget
  */
-abstract class WidgetBase extends AppWidgetProvider {
+internal abstract class WidgetBase : AppWidgetProvider() {
+    private var calendarInstancesObserver: ContentObserver? = null
+    override fun onReceive(context: Context, intent: Intent) {
+        if (!intent.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)
+            && intent.getAction() === AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        ) {
+            val name = ComponentName(context, this.javaClass)
+            val m = AppWidgetManager.getInstance(context)
+            val ids = m.getAppWidgetIds(name)
+            Log.i(TAG, "WidgetBase.onReceive(" + ids.contentToString() + ")")
+            onUpdate(context, m, ids)
+        } else {
+            Log.d(TAG, "WidgetBase.onReceive: without widgetIds")
+            super.onReceive(context, intent)
+        }
+    }
 
-	final static Class<?>[] WIDGET_CLASSES = new Class[]{
-			Widget2x1.class,
-			Widget3x1.class,
-			Widget3x2.class,
-			Widget3x3.class,
-			Widget4x1.class,
-			Widget4x2.class,
-			Widget4x3.class,
-			Widget4x4.class,
-	};
+    override fun onEnabled(context: Context) {
+        Log.d(TAG, "WidgetBase.onEnabled()")
+        registerContentObserver(context)
+    }
 
-	private ContentObserver calendarInstancesObserver;
-	static final String TAG = "AgendaWidget";
+    override fun onDisabled(context: Context) {
+        Log.d(TAG, "WidgetBase.onDisabled()")
+        unregisterContentObserver(context)
+    }
 
-	@Override
-	public void onReceive(Context context, Intent intent) {
-		if (!intent.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)
-				&& intent.getAction() == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-			ComponentName name = new ComponentName(context, this.getClass());
-			AppWidgetManager m = AppWidgetManager.getInstance(context);
-			int[] ids = m.getAppWidgetIds(name);
-			Log.i(TAG, "WidgetBase.onReceive(" + Arrays.toString(ids) + ")");
-			onUpdate(context, m, ids);
-		} else {
-			Log.d(TAG, "WidgetBase.onReceive: without widgetIds");
-			super.onReceive(context, intent);
-		}
-	}
+    override fun onDeleted(context: Context?, appWidgetIds: IntArray) {
+        Log.i(TAG, "WidgetBase.onDeleted(" + appWidgetIds.contentToString() + ")")
+        for (widgetId in appWidgetIds) WidgetInfo.Companion.delete(context, widgetId)
+    }
 
-	@Override
-	public void onEnabled(Context context) {
-		Log.d(TAG, "WidgetBase.onEnabled()");
-		registerContentObserver(context);
-	}
+    override fun onUpdate(context: Context, manager: AppWidgetManager?, ids: IntArray?) {
+        Log.i(TAG, "WidgetBase.onUpdate(" + ids.contentToString() + ")")
 
-	@Override
-	public void onDisabled(Context context) {
-		Log.d(TAG, "WidgetBase.onDisabled()");
-		unregisterContentObserver(context);
-	}
-	
-	@Override
-	public void onDeleted(Context context, int[] appWidgetIds) {
-		Log.i(TAG, "WidgetBase.onDeleted(" + Arrays.toString(appWidgetIds) + ")");
-		for (final int widgetId : appWidgetIds)
-			WidgetInfo.delete(context, widgetId);
-	}
+        unregisterContentObserver(context)
+        registerContentObserver(context)
 
-	@Override
-	public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-		Log.i(TAG, "WidgetBase.onUpdate(" + Arrays.toString(ids) + ")");
+        Log.d(TAG, "WidgetBase.onUpdate: schedule widget update")
+        WidgetService.Companion.scheduleServiceOnce(context)
+    }
 
-		unregisterContentObserver(context);
-		registerContentObserver(context);
+    private fun unregisterContentObserver(context: Context) {
+        Log.d(TAG, "WidgetBase.unregisterContentObserver()")
+        if (calendarInstancesObserver != null) context.getContentResolver().unregisterContentObserver(
+            calendarInstancesObserver!!
+        )
+    }
 
-		Log.d(TAG, "WidgetBase.onUpdate: schedule widget update");
-		WidgetService.scheduleServiceOnce(context);
-	}
+    private fun registerContentObserver(context: Context) {
+        val hasPermissions = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermissions) {
+            Log.w(TAG, "WidgetBase.registerContentObserver: no permissions granted")
+            return
+        }
+        if (calendarInstancesObserver == null) {
+            val name = ComponentName(
+                context,
+                this.javaClass
+            )
 
-	private void unregisterContentObserver(Context context) {
-		Log.d(TAG, "WidgetBase.unregisterContentObserver()");
-		if (calendarInstancesObserver != null)
-			context.getContentResolver().unregisterContentObserver(
-					calendarInstancesObserver);
-	}
+            calendarInstancesObserver = object : ContentObserver(Handler()) {
+                override fun onChange(selfChange: Boolean) {
+                    val m = AppWidgetManager.getInstance(context)
+                    val ids = m.getAppWidgetIds(name)
+                    Log.i(TAG, "ContentObserver.onChange: update widgetIds " + ids.contentToString())
+                    onUpdate(context, m, ids)
+                }
+            }
+        }
+        Log.d(TAG, "WidgetBase.registerContentObserver()")
+        val uriString = "content://com.android.calendar"
+        val instancesUri = Uri.parse(uriString)
+        context.getContentResolver().registerContentObserver(
+            instancesUri,
+            true, calendarInstancesObserver!!
+        )
+    }
 
-	private void registerContentObserver(final Context context) {
-		boolean hasPermissions = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
-		if (!hasPermissions) {
-			Log.w(TAG, "WidgetBase.registerContentObserver: no permissions granted");
-			return;
-		}
-		if (calendarInstancesObserver == null) {
-			final ComponentName name = new ComponentName(context,
-					this.getClass());
+    companion object {
+        val WIDGET_CLASSES: Array<Class<*>?> = arrayOf<Class<*>>(
+            Widget2x1::class.java,
+            Widget3x1::class.java,
+            Widget3x2::class.java,
+            Widget3x3::class.java,
+            Widget4x1::class.java,
+            Widget4x2::class.java,
+            Widget4x3::class.java,
+            Widget4x4::class.java,
+        )
 
-			calendarInstancesObserver = new ContentObserver(new Handler()) {
-				@Override
-				public void onChange(boolean selfChange) {
-					AppWidgetManager m = AppWidgetManager.getInstance(context);
-					int[] ids = m.getAppWidgetIds(name);
-					Log.i(TAG, "ContentObserver.onChange: update widgetIds "+Arrays.toString(ids));
-					onUpdate(context, m, ids);
-				}
-			};
-		}
-		Log.d(TAG, "WidgetBase.registerContentObserver()");
-		String uriString = "content://com.android.calendar";
-		Uri instancesUri = Uri.parse(uriString);
-		context.getContentResolver().registerContentObserver(instancesUri,
-				true, calendarInstancesObserver);
-	}
+        const val TAG: String = "AgendaWidget"
+    }
 }

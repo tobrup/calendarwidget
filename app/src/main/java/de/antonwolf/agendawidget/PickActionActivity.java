@@ -19,149 +19,134 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE
  */
-package de.antonwolf.agendawidget;
+package de.antonwolf.agendawidget
 
-import android.Manifest;
-import android.app.Activity;
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
-import java.util.Arrays;
+import android.Manifest
+import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 /**
  * The activity that launches when the user clicks on the widget
- *
+ * 
  * @author Anton Wolf
- *
  */
-public final class PickActionActivity extends Activity {
+class PickActionActivity : Activity() {
     /**
      * An OnClickListener that starts an Activity described by an Intent
-     *
+     * 
      * @author Anton Wolf
-     *
      */
-    private final static class StartActivityOnClick implements
-            View.OnClickListener {
-        final Intent intent;
-
-        StartActivityOnClick(Intent intent) {
-            this.intent = intent;
-        }
-
-        @Override
-        public void onClick(View v) {
-            v.getContext().startActivity(intent);
+    private class StartActivityOnClick(val intent: Intent?) : View.OnClickListener {
+        override fun onClick(v: View) {
+            v.getContext().startActivity(intent)
         }
     }
-
-    /**
-     * The key under which the Intent's AppWidget ID is stored
-     */
-    public final static String EXTRA_WIDGET_ID = "widgetId";
-
-    private final static int REQUEST_PERMISSIONS_CODE = 100;
-
-    /**
-     * Tag for Log messages
-     */
-    private final static String TAG = "AgendaWidget";
 
     /**
      * Sets up the Activity's GUI
      */
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-        final int widgetId = getIntent().getIntExtra(EXTRA_WIDGET_ID, -1);
-        Log.d(TAG, "PickActionActivity.onCreate(" + widgetId + ")");
+        val widgetId = getIntent().getIntExtra(EXTRA_WIDGET_ID, -1)
+        Log.d(TAG, "PickActionActivity.onCreate(" + widgetId + ")")
 
-        setContentView(R.layout.pick_action);
+        setContentView(R.layout.pick_action)
 
-        final Intent calendar = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("content://com.android.calendar/time"));
-        findViewById(R.id.open_calendar).setOnClickListener(new StartActivityOnClick(calendar));
+        val calendar = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("content://com.android.calendar/time")
+        )
+        findViewById<View?>(R.id.open_calendar).setOnClickListener(StartActivityOnClick(calendar))
 
         if (widgetId == -1) {
-            findViewById(R.id.open_settings).setVisibility(View.GONE);
+            findViewById<View?>(R.id.open_settings).setVisibility(View.GONE)
         } else {
-            findViewById(R.id.open_settings).setVisibility(View.VISIBLE);
-            final Intent settings = new Intent(this, SettingsActivity.class);
-            settings.putExtra(SettingsActivity.EXTRA_WIDGET_ID, widgetId);
-            findViewById(R.id.open_settings).setOnClickListener(new StartActivityOnClick(settings));
+            findViewById<View?>(R.id.open_settings).setVisibility(View.VISIBLE)
+            val settings = Intent(this, SettingsActivity::class.java)
+            settings.putExtra(SettingsActivity.Companion.EXTRA_WIDGET_ID, widgetId)
+            findViewById<View?>(R.id.open_settings).setOnClickListener(StartActivityOnClick(settings))
         }
 
-        updatePermissionsValueText();
-        findViewById(R.id.permissions_entry).setOnClickListener(v -> requestPermissions());
+        updatePermissionsValueText()
+        findViewById<View?>(R.id.permissions_entry).setOnClickListener(View.OnClickListener { v: View? -> requestPermissions() })
     }
 
-    private void updatePermissionsValueText() {
-        boolean hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
-        int textRes = hasPermissions ? R.string.permissions_list_entry_granted : R.string.permissions_list_entry_denied;
-        ((TextView) findViewById(R.id.permissions_entry_value)).setText(textRes);
+    private fun updatePermissionsValueText() {
+        val hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+        val textRes = if (hasPermissions) R.string.permissions_list_entry_granted else R.string.permissions_list_entry_denied
+        (findViewById<View?>(R.id.permissions_entry_value) as TextView).setText(textRes)
     }
 
-    private void requestPermissions() {
-        boolean hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
+    private fun requestPermissions() {
+        val hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         if (hasPermissions) {
-            Log.d(TAG, "PickActionActivity.requestPermissions: Already granted");
+            Log.d(TAG, "PickActionActivity.requestPermissions: Already granted")
         } else {
-            Log.d(TAG, "PickActionActivity.requestPermissions: requestPermissions...");
+            Log.d(TAG, "PickActionActivity.requestPermissions: requestPermissions...")
             ActivityCompat.requestPermissions(
-                    this, new String[]{Manifest.permission.READ_CALENDAR},
-                    REQUEST_PERMISSIONS_CODE
-            );
+                this, arrayOf<String>(Manifest.permission.READ_CALENDAR),
+                REQUEST_PERMISSIONS_CODE
+            )
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        Log.d(TAG, "PickActionActivity.onRequestPermissionsResult: code: " + requestCode + ", permissions: " + Arrays.toString(permissions) + ", grantResults: " + Arrays.toString(grantResults));
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_PERMISSIONS_CODE &&
-                grantResults.length > 0 &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String?>, grantResults: IntArray) {
+        Log.d(TAG, "PickActionActivity.onRequestPermissionsResult: code: " + requestCode + ", permissions: " + permissions.contentToString() + ", grantResults: " + grantResults.contentToString())
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_PERMISSIONS_CODE && grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
         ) {
-            Log.i(TAG, "PickActionActivity.onRequestPermissionsResult: permissions granted.");
-            updateWidgets();
+            Log.i(TAG, "PickActionActivity.onRequestPermissionsResult: permissions granted.")
+            updateWidgets()
         } else {
-            Log.w(TAG, "PickActionActivity.onRequestPermissionsResult: permissions not granted");
+            Log.w(TAG, "PickActionActivity.onRequestPermissionsResult: permissions not granted")
         }
-        updatePermissionsValueText();
+        updatePermissionsValueText()
     }
 
-    private void updateWidgets() {
-        for (Class<?> c : WidgetBase.WIDGET_CLASSES) {
-            final ComponentName name = new ComponentName(this, c);
-            AppWidgetManager m = AppWidgetManager.getInstance(this);
-            int[] widgetIds = m.getAppWidgetIds(name);
-            if (widgetIds.length > 0) {
-                Log.d(TAG, "PickActionActivity.updateWidgets: update widgets " + Arrays.toString(widgetIds) + " for class " + c.getName());
+    private fun updateWidgets() {
+        for (c in WidgetBase.Companion.WIDGET_CLASSES) {
+            val name: ComponentName = ComponentName(this, c)
+            val m = AppWidgetManager.getInstance(this)
+            val widgetIds = m.getAppWidgetIds(name)
+            if (widgetIds.size > 0) {
+                Log.d(TAG, "PickActionActivity.updateWidgets: update widgets " + widgetIds.contentToString() + " for class " + c.getName())
 
-                Intent broadcastIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-                broadcastIntent.setComponent(name);
+                val broadcastIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                broadcastIntent.setComponent(name)
                 broadcastIntent.putExtra(
-                        AppWidgetManager.EXTRA_APPWIDGET_IDS,
-                        widgetIds
-                );
-                Log.d(TAG, "PickActionActivity.updateWidgets: Sending Broadcast Intent " + broadcastIntent);
-                sendBroadcast(broadcastIntent);
-
+                    AppWidgetManager.EXTRA_APPWIDGET_IDS,
+                    widgetIds
+                )
+                Log.d(TAG, "PickActionActivity.updateWidgets: Sending Broadcast Intent " + broadcastIntent)
+                sendBroadcast(broadcastIntent)
             }
         }
-        Log.d(TAG, "PickActionActivity.updateWidgets: schedule widget update");
-        WidgetService.scheduleServiceOnce(this);
+        Log.d(TAG, "PickActionActivity.updateWidgets: schedule widget update")
+        WidgetService.Companion.scheduleServiceOnce(this)
+    }
+
+    companion object {
+        /**
+         * The key under which the Intent's AppWidget ID is stored
+         */
+        const val EXTRA_WIDGET_ID: String = "widgetId"
+
+        private const val REQUEST_PERMISSIONS_CODE = 100
+
+        /**
+         * Tag for Log messages
+         */
+        private const val TAG = "AgendaWidget"
     }
 }

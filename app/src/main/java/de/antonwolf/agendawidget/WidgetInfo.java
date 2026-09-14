@@ -19,239 +19,251 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package de.antonwolf.agendawidget;
+package de.antonwolf.agendawidget
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import android.appwidget.AppWidgetManager
+import android.content.Context
+import android.content.SharedPreferences
+import android.database.Cursor
+import android.net.Uri
+import android.os.Build
+import android.preference.PreferenceManager
+import android.util.DisplayMetrics
+import android.view.WindowManager
 
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.content.res.Resources;
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.Build;
-import android.preference.PreferenceManager;
-import android.util.DisplayMetrics;
-import android.view.WindowManager;
+internal class WidgetInfo(val widgetId: Int, context: Context) {
+    class CalendarPreferences private constructor(
+        prefs: SharedPreferences, widgetId: Int,
+        val calendarId: Int, val displayName: String?, val color: Int
+    ) {
+        val key: String
 
-final class WidgetInfo {
-	public final static class CalendarPreferences {
-		public final int calendarId;
-		public final int color;
-		public final String displayName;
-		public final String key;
+        val enabledDefault: Boolean = true
+        val enabled: Boolean
 
-		public final boolean enabledDefault = true;
-		public final boolean enabled;
+        init {
+            key = String.format(CALENDARS_KEY, widgetId, calendarId)
+            enabled = prefs.getBoolean(key, enabledDefault)
+        }
+    }
 
-		private CalendarPreferences(SharedPreferences prefs, int widgetId,
-				int calendarId, String displayName, int color) {
-			this.calendarId = calendarId;
-			this.color = color;
-			this.displayName = displayName;
+    enum class DateFormat(shortFormat: String, longFormat: String) {
+        DOT_DAY_MONTH("%1\$te.%1\$tm", "%1\$te.%1\$tm.%1\$ty"), SLASH_DAY_MONTH(
+            "%1\$te/%1\$tm", "%1\$te/%1\$tm/%1\$ty"
+        ),
+        SLASH_MONTH_DAY(
+            "%1\$tm/%1\$td", "%1\$tm/%1\$td/%1\$ty"
+        ),
+        SLASH_YEAR_MONTH_DAY(
+            "%1\$tm/%1\$td", "%1\$ty/%1\$tm/%1\$td"
+        );
 
-			key = String.format(CALENDARS_KEY, widgetId, calendarId);
-			enabled = prefs.getBoolean(key, enabledDefault);
-		}
-	}
+        val shortFormat: String?
+        val longFormat: String?
 
-	public enum DateFormat {
-		DOT_DAY_MONTH("%1$te.%1$tm", "%1$te.%1$tm.%1$ty"), SLASH_DAY_MONTH(
-				"%1$te/%1$tm", "%1$te/%1$tm/%1$ty"), SLASH_MONTH_DAY(
-				"%1$tm/%1$td", "%1$tm/%1$td/%1$ty"), SLASH_YEAR_MONTH_DAY(
-				"%1$tm/%1$td", "%1$ty/%1$tm/%1$td");
+        init {
+            this.shortFormat = shortFormat
+            this.longFormat = longFormat
+        }
+    }
 
-		public final String shortFormat;
-		public final String longFormat;
+    val birthdays: String
+    val birthdaysDefault: String
+    val birthdaysKey: String
+    val lines: String
+    val linesDefault: String
+    val linesKey: String
+    val size: String
+    val sizeDefault: String = "100"
+    val sizeKey: String
+    val opacity: Float
+    val opacityDefault: Float = 0.6f
+    val opacityKey: String
 
-		private DateFormat(String shortFormat, String longFormat) {
-			this.shortFormat = shortFormat;
-			this.longFormat = longFormat;
-		}
-	}
+    // DELETE SOMETIME
+    val oldOpacityDefault: String = "60"
+    val calendarColor: Boolean
+    val calendarColorDefault: Boolean = true
+    val calendarColorKey: String
+    val tomorrowYesterday: Boolean
+    val tomorrowYesterdayDefault: Boolean = true
+    val tomorrowYesterdayKey: String
+    val weekday: Boolean
+    val weekdayDefault: Boolean = true
+    val weekdayKey: String
+    val endTime: Boolean
+    val endTimeDefault: Boolean
+    val endTimeKey: String
+    val twentyfourHours: Boolean
+    val twentyfourHoursDefault: Boolean
+    val twentyfourHoursKey: String
+    val dateFormat: DateFormat
+    val dateFormatDefault: DateFormat
+    val dateFormatKey: String
+    val calendars: MutableMap<Int?, CalendarPreferences?>
 
-	public static final String BIRTHDAY_SPECIAL = "special";
-	public static final String BIRTHDAY_NORMAL = "normal";
-	public static final String BIRTHDAY_HIDE = "hidden";
+    init {
+        val prefs = PreferenceManager
+            .getDefaultSharedPreferences(context)
+        val manager = AppWidgetManager.getInstance(context)
+        val widgetInfo = manager
+            .getAppWidgetInfo(widgetId)
 
-	public final int widgetId;
+        val winManager = context
+            .getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = DisplayMetrics()
+        winManager.getDefaultDisplay().getMetrics(metrics)
 
-	public final String birthdays;
-	public final String birthdaysDefault;
-	public final String birthdaysKey;
-	private static final String BIRTHDAYS_KEY = "%dbirthdays";
+        val heightInCells = (widgetInfo.minHeight / metrics.density + 2).toInt() / 74
+        val widthInCells = (widgetInfo.minWidth / metrics.density + 2).toInt() / 74
 
-	public final String lines;
-	public final String linesDefault;
-	public final String linesKey;
-	private static final String LINES_KEY = "%dlines";
+        val res = context.getResources()
 
-	public final String size;
-	public final String sizeDefault = "100";;
-	public final String sizeKey;
-	private static final String SIZE_KEY = "%dsize";
+        birthdaysKey = String.format(BIRTHDAYS_KEY, widgetId)
+        birthdaysDefault = if (widthInCells > 2)
+            BIRTHDAY_SPECIAL
+        else
+            BIRTHDAY_NORMAL
+        birthdays = prefs.getString(birthdaysKey, birthdaysDefault)!!
 
-	public final float opacity;
-	public final float opacityDefault = 0.6f;
-	public final String opacityKey;
-	private static final String OPACITY_KEY = "%dopacityFloat";
-	
-	// DELETE SOMETIME
-	public final String oldOpacityDefault = "60";
-	private static final String OLD_OPACITY_KEY = "%dopacity";
+        val linesInt = 5 + ((heightInCells - 1) * 5.9).toInt()
+        linesDefault = linesInt.toString()
+        linesKey = String.format(LINES_KEY, widgetId)
+        lines = prefs.getString(linesKey, linesDefault)!!
 
-	public final boolean calendarColor;
-	public final boolean calendarColorDefault = true;
-	public final String calendarColorKey;
-	private static final String CALENDAR_COLOR_KEY = "%dcalendarColor";
+        sizeKey = String.format(SIZE_KEY, widgetId)
+        size = prefs.getString(sizeKey, sizeDefault)!!
 
-	public final boolean tomorrowYesterday;
-	public final boolean tomorrowYesterdayDefault = true;
-	public final String tomorrowYesterdayKey;
-	private static final String TOMORROW_YESTERDAY_KEY = "%dtommorowYesterday";
+        opacityKey = String.format(OPACITY_KEY, widgetId)
+        val oldOpacityKey = String.format(OLD_OPACITY_KEY, widgetId)
+        opacity = prefs.getFloat(
+            opacityKey, prefs.getString(
+                oldOpacityKey, oldOpacityDefault
+            )!!.toFloat() / 100f
+        )
 
-	public final boolean weekday;
-	public final boolean weekdayDefault = true;
-	public final String weekdayKey;
-	private static final String WEEKDAY_KEY = "%dweekday";
+        calendarColorKey = String.format(CALENDAR_COLOR_KEY, widgetId)
+        calendarColor = prefs
+            .getBoolean(calendarColorKey, calendarColorDefault)
 
-	public final boolean endTime;
-	public final boolean endTimeDefault;
-	public final String endTimeKey;
-	private static final String END_TIME_KEY = "%dendTime";
+        tomorrowYesterdayKey = String.format(TOMORROW_YESTERDAY_KEY, widgetId)
+        tomorrowYesterday = prefs.getBoolean(
+            tomorrowYesterdayKey,
+            tomorrowYesterdayDefault
+        )
 
-	public final boolean twentyfourHours;
-	public final boolean twentyfourHoursDefault;
-	public final String twentyfourHoursKey;
-	private static final String TWENTYFOUR_HOURS_KEY = "%dtwentyfourHours";
+        weekdayKey = String.format(WEEKDAY_KEY, widgetId)
+        weekday = prefs.getBoolean(weekdayKey, weekdayDefault)
 
-	public final DateFormat dateFormat;
-	public final DateFormat dateFormatDefault;
-	public final String dateFormatKey;
-	private static final String DATE_FORMAT_KEY = "%ddateFormat";
+        endTimeKey = String.format(END_TIME_KEY, widgetId)
+        endTimeDefault = widthInCells > 2
+        endTime = prefs.getBoolean(endTimeKey, endTimeDefault)
 
-	public final Map<Integer, CalendarPreferences> calendars;
-	private static final String CALENDARS_KEY = "%dcalendar%d";
+        twentyfourHoursKey = String.format(TWENTYFOUR_HOURS_KEY, widgetId)
+        twentyfourHoursDefault = res.getBoolean(R.bool.format_24hours)
+        twentyfourHours = prefs.getBoolean(
+            twentyfourHoursKey,
+            twentyfourHoursDefault
+        )
 
-	public WidgetInfo(int widgetId, Context context) {
-		this.widgetId = widgetId;
-		final SharedPreferences prefs = PreferenceManager
-				.getDefaultSharedPreferences(context);
-		final AppWidgetManager manager = AppWidgetManager.getInstance(context);
-		final AppWidgetProviderInfo widgetInfo = manager
-				.getAppWidgetInfo(widgetId);
+        dateFormatKey = String.format(DATE_FORMAT_KEY, widgetId)
+        dateFormatDefault = DateFormat.valueOf(
+            res
+                .getString(R.string.format_date)
+        )
+        dateFormat = DateFormat.valueOf(
+            prefs.getString(
+                dateFormatKey,
+                dateFormatDefault.toString()
+            )!!
+        )
 
-		final WindowManager winManager = (WindowManager) context
-				.getSystemService(Context.WINDOW_SERVICE);
-		final DisplayMetrics metrics = new DisplayMetrics();
-		winManager.getDefaultDisplay().getMetrics(metrics);
+        calendars = getCalendars(context, widgetId)
+    }
 
-		final int heightInCells = (int) (widgetInfo.minHeight / metrics.density + 2) / 74;
-		final int widthInCells = (int) (widgetInfo.minWidth / metrics.density + 2) / 74;
+    companion object {
+        const val BIRTHDAY_SPECIAL: String = "special"
+        const val BIRTHDAY_NORMAL: String = "normal"
+        const val BIRTHDAY_HIDE: String = "hidden"
 
-		final Resources res = context.getResources();
+        private const val BIRTHDAYS_KEY = "%dbirthdays"
 
-		birthdaysKey = String.format(BIRTHDAYS_KEY, widgetId);
-		birthdaysDefault = widthInCells > 2 ? BIRTHDAY_SPECIAL
-				: BIRTHDAY_NORMAL;
-		birthdays = prefs.getString(birthdaysKey, birthdaysDefault);
+        private const val LINES_KEY = "%dlines"
 
-		int linesInt = 5 + (int) ((heightInCells - 1) * 5.9);
-		linesDefault = Integer.toString(linesInt);
-		linesKey = String.format(LINES_KEY, widgetId);
-		lines = prefs.getString(linesKey, linesDefault);
+        private const val SIZE_KEY = "%dsize"
 
-		sizeKey = String.format(SIZE_KEY, widgetId);
-		size = prefs.getString(sizeKey, sizeDefault);
+        private const val OPACITY_KEY = "%dopacityFloat"
 
-		opacityKey = String.format(OPACITY_KEY, widgetId);
-        final String oldOpacityKey = String.format(OLD_OPACITY_KEY, widgetId);
-        opacity = prefs.getFloat(opacityKey, Float.parseFloat(prefs.getString(
-                        oldOpacityKey, oldOpacityDefault)) / 100f);
+        private const val OLD_OPACITY_KEY = "%dopacity"
 
-		calendarColorKey = String.format(CALENDAR_COLOR_KEY, widgetId);
-		calendarColor = prefs
-				.getBoolean(calendarColorKey, calendarColorDefault);
+        private const val CALENDAR_COLOR_KEY = "%dcalendarColor"
 
-		tomorrowYesterdayKey = String.format(TOMORROW_YESTERDAY_KEY, widgetId);
-		tomorrowYesterday = prefs.getBoolean(tomorrowYesterdayKey,
-				tomorrowYesterdayDefault);
+        private const val TOMORROW_YESTERDAY_KEY = "%dtommorowYesterday"
 
-		weekdayKey = String.format(WEEKDAY_KEY, widgetId);
-		weekday = prefs.getBoolean(weekdayKey, weekdayDefault);
+        private const val WEEKDAY_KEY = "%dweekday"
 
-		endTimeKey = String.format(END_TIME_KEY, widgetId);
-		endTimeDefault = widthInCells > 2;
-		endTime = prefs.getBoolean(endTimeKey, endTimeDefault);
+        private const val END_TIME_KEY = "%dendTime"
 
-		twentyfourHoursKey = String.format(TWENTYFOUR_HOURS_KEY, widgetId);
-		twentyfourHoursDefault = res.getBoolean(R.bool.format_24hours);
-		twentyfourHours = prefs.getBoolean(twentyfourHoursKey,
-				twentyfourHoursDefault);
+        private const val TWENTYFOUR_HOURS_KEY = "%dtwentyfourHours"
 
-		dateFormatKey = String.format(DATE_FORMAT_KEY, widgetId);
-		dateFormatDefault = DateFormat.valueOf(res
-				.getString(R.string.format_date));
-		dateFormat = DateFormat.valueOf(prefs.getString(dateFormatKey,
-				dateFormatDefault.toString()));
+        private const val DATE_FORMAT_KEY = "%ddateFormat"
 
-		calendars = getCalendars(context, widgetId);
-	}
+        private const val CALENDARS_KEY = "%dcalendar%d"
 
-	private static Map<Integer, CalendarPreferences> getCalendars(
-			Context context, int widgetId) {
-		Cursor cursor = null;
-		final SharedPreferences prefs = PreferenceManager
-				.getDefaultSharedPreferences(context);
-		try {
-			if (Build.VERSION.SDK_INT < 14)
-				cursor = context.getContentResolver().query(
-						Uri.parse("content://com.android.calendar/calendars"),
-						new String[] { "_id", "displayName", "color" }, null, null,
-						"displayName ASC");
-			else
-				cursor = context.getContentResolver().query(
-						Uri.parse("content://com.android.calendar/calendars"),
-						new String[] { "_id", "calendar_displayName", "calendar_color" }, null, null,
-						"calendar_displayName ASC");
-			final Map<Integer, CalendarPreferences> calendars = new HashMap<Integer, CalendarPreferences>(
-					cursor.getCount());
+        private fun getCalendars(
+            context: Context, widgetId: Int
+        ): MutableMap<Int?, CalendarPreferences?> {
+            var cursor: Cursor? = null
+            val prefs = PreferenceManager
+                .getDefaultSharedPreferences(context)
+            try {
+                if (Build.VERSION.SDK_INT < 14) cursor = context.getContentResolver().query(
+                    Uri.parse("content://com.android.calendar/calendars"),
+                    arrayOf<String>("_id", "displayName", "color"), null, null,
+                    "displayName ASC"
+                )
+                else cursor = context.getContentResolver().query(
+                    Uri.parse("content://com.android.calendar/calendars"),
+                    arrayOf<String>("_id", "calendar_displayName", "calendar_color"), null, null,
+                    "calendar_displayName ASC"
+                )
+                val calendars: MutableMap<Int?, CalendarPreferences?> = HashMap<Int?, CalendarPreferences?>(
+                    cursor!!.getCount()
+                )
 
-			while (cursor.moveToNext())
-				calendars.put(
-						cursor.getInt(0),
-						new CalendarPreferences(prefs, widgetId, cursor
-								.getInt(0), cursor.getString(1), cursor
-								.getInt(2)));
-			return calendars;
-		} finally {
-			if (null != cursor)
-				cursor.close();
-		}
-	}
+                while (cursor.moveToNext()) calendars.put(
+                    cursor.getInt(0),
+                    CalendarPreferences(
+                        prefs, widgetId, cursor
+                            .getInt(0), cursor.getString(1), cursor
+                            .getInt(2)
+                    )
+                )
+                return calendars
+            } finally {
+                if (null != cursor) cursor.close()
+            }
+        }
 
-	public static void delete(Context context, int widgetId) {
-		Editor editor = PreferenceManager.getDefaultSharedPreferences(context)
-				.edit();
-		editor.remove(String.format(BIRTHDAYS_KEY, widgetId));
-		editor.remove(String.format(LINES_KEY, widgetId));
-		editor.remove(String.format(SIZE_KEY, widgetId));
-		editor.remove(String.format(OPACITY_KEY, widgetId));
-		editor.remove(String.format(CALENDAR_COLOR_KEY, widgetId));
-		editor.remove(String.format(TOMORROW_YESTERDAY_KEY, widgetId));
-		editor.remove(String.format(WEEKDAY_KEY, widgetId));
-		editor.remove(String.format(END_TIME_KEY, widgetId));
-		editor.remove(String.format(TWENTYFOUR_HOURS_KEY, widgetId));
-		editor.remove(String.format(DATE_FORMAT_KEY, widgetId));
-		for (final Entry<Integer, CalendarPreferences> cinfo : getCalendars(
-				context, widgetId).entrySet()) {
-			editor.remove(cinfo.getValue().key);
-		}
-		editor.commit();
-	}
-
+        fun delete(context: Context, widgetId: Int) {
+            val editor = PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+            editor.remove(String.format(BIRTHDAYS_KEY, widgetId))
+            editor.remove(String.format(LINES_KEY, widgetId))
+            editor.remove(String.format(SIZE_KEY, widgetId))
+            editor.remove(String.format(OPACITY_KEY, widgetId))
+            editor.remove(String.format(CALENDAR_COLOR_KEY, widgetId))
+            editor.remove(String.format(TOMORROW_YESTERDAY_KEY, widgetId))
+            editor.remove(String.format(WEEKDAY_KEY, widgetId))
+            editor.remove(String.format(END_TIME_KEY, widgetId))
+            editor.remove(String.format(TWENTYFOUR_HOURS_KEY, widgetId))
+            editor.remove(String.format(DATE_FORMAT_KEY, widgetId))
+            for (cinfo in getCalendars(
+                context, widgetId
+            ).entries) {
+                editor.remove(cinfo.value!!.key)
+            }
+            editor.commit()
+        }
+    }
 }
