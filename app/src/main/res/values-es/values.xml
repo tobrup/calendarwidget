@@ -9,6 +9,11 @@
     <string name="settings">Configurar</string>
     <string name="settings_description">Anton\'s Calendar Widget</string>
 
+    <string name="permissions_list_entry_title">Permisos</string>
+    <string name="permissions_list_entry_subtitle">Clic para otorgar permisos</string>
+    <string name="permissions_list_entry_granted">Permitido</string>
+    <string name="permissions_list_entry_denied">Pendiente</string>
+
     <string-array name="format_day_of_week">
         <item>Do</item>
         <item>Lu</item>

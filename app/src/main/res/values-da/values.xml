@@ -30,6 +30,11 @@
 	<string name="settings">Indstillinger</string>
 	<string name="settings_description">Konfigurer Antons kalender-widget</string>
 
+	<string name="permissions_list_entry_title">Tilladelser</string>
+	<string name="permissions_list_entry_subtitle">Klik for at give kalendertilladelser</string>
+	<string name="permissions_list_entry_granted">Tilladt</string>
+	<string name="permissions_list_entry_denied">Manglende</string>
+
 	<string name="settings_display">Visning</string>
 	<string name="settings_display_lines">Antal linjer</string>
 	<string name="settings_display_lines_summary">Viser %s linjer på widget.</string>

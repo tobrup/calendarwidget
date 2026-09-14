@@ -30,6 +30,11 @@
 	<string name="settings">Paramètres</string>
 	<string name="settings_description">Configuration du Widget Agenda par Anton</string>
 
+	<string name="permissions_list_entry_title">Autorisations</string>
+	<string name="permissions_list_entry_subtitle">Cliquez pour accorder les autorisations</string>
+	<string name="permissions_list_entry_granted">Accordé</string>
+	<string name="permissions_list_entry_denied">En attente</string>
+
 	<string name="settings_display">Affichage</string>
 	<string name="settings_display_lines">Nombre des lignes</string>
 	<string name="settings_display_lines_summary">Afficher %s lignes.</string>

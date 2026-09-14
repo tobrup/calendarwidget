@@ -30,6 +30,11 @@
 	<string name="settings">Impostazioni</string>
 	<string name="settings_description">Configurare il Widget Calendario di Anton</string>
 
+	<string name="permissions_list_entry_title">Autorizzazioni</string>
+	<string name="permissions_list_entry_subtitle">Fai clic per concedere le autorizzazioni</string>
+	<string name="permissions_list_entry_granted">Concesso</string>
+	<string name="permissions_list_entry_denied">Mancante</string>
+
 	<string name="settings_display">Rappresentanza</string>
 	<string name="settings_display_lines">Numero di rige</string>
 	<string name="settings_display_lines_summary">Visualizzare %s righe.</string>

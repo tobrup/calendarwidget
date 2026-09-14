@@ -30,6 +30,11 @@
 	<string name="settings">Einstellungen</string>
 	<string name="settings_description">Antons Kalender-Widget konfigurieren</string>
 
+	<string name="permissions_list_entry_title">Berechtigungen</string>
+	<string name="permissions_list_entry_subtitle">Klicken um Berechtigungen zu erteilen</string>
+	<string name="permissions_list_entry_granted">Erlaubt</string>
+	<string name="permissions_list_entry_denied">Fehlen</string>
+
 	<string name="settings_display">Anzeige</string>
 	<string name="settings_display_lines">Zeilenzahl</string>
 	<string name="settings_display_lines_summary">Zeige %s Zeilen an.</string>

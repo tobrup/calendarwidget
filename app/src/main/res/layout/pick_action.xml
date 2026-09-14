@@ -40,4 +40,35 @@
 				android:maxLines="2" android:textColor="?android:attr/textColorSecondary" />
 		</LinearLayout>
 	</LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent"
+        android:focusable="true" android:layout_height="wrap_content"
+        android:gravity="center_vertical|left" android:clickable="true"
+        android:id="@+id/permissions_entry">
+        <ImageView android:src="@drawable/icon"
+            android:visibility="invisible"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginLeft="20dip"
+            android:layout_marginRight="6dip" android:layout_marginTop="6dip"
+            android:layout_marginBottom="6dip" android:orientation="vertical">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal">
+                <TextView android:text="@string/permissions_list_entry_title"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:singleLine="true" android:textAppearance="?android:attr/textAppearanceLarge"
+                    android:ellipsize="marquee" android:fadingEdge="horizontal" />
+                <TextView android:id="@+id/permissions_entry_value"
+                    android:text="..."
+                    android:layout_weight="0"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:singleLine="true" android:textAppearance="?android:attr/textAppearanceLarge"
+                    android:ellipsize="marquee" android:fadingEdge="horizontal" />
+            </LinearLayout>
+            <TextView android:text="@string/permissions_list_entry_subtitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:maxLines="2" android:textColor="?android:attr/textColorSecondary" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

@@ -22,6 +22,10 @@
 	<string name="open_calendar">Open calendar</string>
 	<string name="settings">Settings</string>
 	<string name="settings_description">Configure Anton\'s Calendar Widget</string>
+	<string name="permissions_list_entry_title">Permissions</string>
+	<string name="permissions_list_entry_subtitle">Click to grant calender permissions</string>
+	<string name="permissions_list_entry_granted">Granted</string>
+	<string name="permissions_list_entry_denied">Missing</string>
 
 	<string-array name="format_day_of_week">
 		<item>Su</item>
