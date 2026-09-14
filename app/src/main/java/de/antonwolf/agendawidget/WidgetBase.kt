@@ -39,7 +39,7 @@ import androidx.core.content.ContextCompat
  * 
  * Base class for each widget
  */
-internal abstract class WidgetBase : AppWidgetProvider() {
+abstract class WidgetBase : AppWidgetProvider() {
     private var calendarInstancesObserver: ContentObserver? = null
     override fun onReceive(context: Context, intent: Intent) {
         if (!intent.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)
@@ -68,7 +68,7 @@ internal abstract class WidgetBase : AppWidgetProvider() {
 
     override fun onDeleted(context: Context?, appWidgetIds: IntArray) {
         Log.i(TAG, "WidgetBase.onDeleted(" + appWidgetIds.contentToString() + ")")
-        for (widgetId in appWidgetIds) WidgetInfo.Companion.delete(context, widgetId)
+        for (widgetId in appWidgetIds) WidgetInfo.Companion.delete(context!!, widgetId)
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager?, ids: IntArray?) {
@@ -119,7 +119,7 @@ internal abstract class WidgetBase : AppWidgetProvider() {
     }
 
     companion object {
-        val WIDGET_CLASSES: Array<Class<*>?> = arrayOf<Class<*>>(
+        val WIDGET_CLASSES: Array<Class<*>> = arrayOf<Class<*>>(
             Widget2x1::class.java,
             Widget3x1::class.java,
             Widget3x2::class.java,

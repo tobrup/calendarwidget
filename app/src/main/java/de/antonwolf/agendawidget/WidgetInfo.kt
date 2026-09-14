@@ -31,8 +31,8 @@ import android.preference.PreferenceManager
 import android.util.DisplayMetrics
 import android.view.WindowManager
 
-internal class WidgetInfo(val widgetId: Int, context: Context) {
-    class CalendarPreferences private constructor(
+class WidgetInfo(val widgetId: Int, context: Context) {
+    class CalendarPreferences constructor(
         prefs: SharedPreferences, widgetId: Int,
         val calendarId: Int, val displayName: String?, val color: Int
     ) {

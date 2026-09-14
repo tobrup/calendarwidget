@@ -215,8 +215,8 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         manager.updateAppWidget(widgetId, widget)
     }
 
-    private fun collectWidgetIds(): MutableList<Int?> {
-        val allWidgetIds: MutableList<Int?> = ArrayList<Any?>()
+    private fun collectWidgetIds(): MutableList<Int> {
+        val allWidgetIds: MutableList<Int> = ArrayList<Int>()
         for (c in WidgetBase.Companion.WIDGET_CLASSES) {
             val name: ComponentName = ComponentName(getApplicationContext(), c)
             val m = AppWidgetManager.getInstance(getApplicationContext())
@@ -325,7 +325,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
             val start: Long = todayStart - 1000 * 60 * 60 * 24
             val end: Long = start + SEARCH_DURATION
 
-            val projection: Array<String?>
+            val projection: Array<String>
 
             if (Build.VERSION.SDK_INT < 14) projection = arrayOf<String>(
                 "title",
@@ -370,9 +370,8 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
                 val strings = getApplicationContext().getResources().getStringArray(
                     R.array.birthday_patterns
                 )
-                Companion.birthdayPatterns = arrayOfNulls<Pattern>(strings.size)
-                for (i in strings.indices) {
-                    Companion.birthdayPatterns!![i] = Pattern.compile(strings[i])
+                Companion.birthdayPatterns = Array<Pattern>(strings.size){
+                    Pattern.compile(strings[it])
                 }
             }
             return Companion.birthdayPatterns
@@ -580,7 +579,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         private var yearStart: Long = 0
         private var yearEnd: Long = 0
 
-        private var birthdayPatterns: Array<Pattern>?
+        private var birthdayPatterns: Array<Pattern>? = null
 
         private const val CURSOR_FORMAT = "content://com.android.calendar/instances/when/%1\$s/%2\$s"
         private val SEARCH_DURATION = 2 * DateUtils.YEAR_IN_MILLIS

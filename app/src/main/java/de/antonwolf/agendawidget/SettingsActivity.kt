@@ -239,29 +239,29 @@ class SettingsActivity : PreferenceActivity() {
         for (cinfo in info.calendars
             .entries) {
             val calendar = CheckBoxPreference(this)
-            calendar.setDefaultValue(cinfo.value.enabledDefault)
-            calendar.setKey(cinfo.value.key)
+            calendar.setDefaultValue(cinfo.value!!.enabledDefault)
+            calendar.setKey(cinfo.value!!.key)
 
             val title = SpannableStringBuilder(
                 "■ "
             )
             title.setSpan(
-                ForegroundColorSpan(cinfo.value.color), 0,
+                ForegroundColorSpan(cinfo.value!!.color), 0,
                 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            title.append(cinfo.value.displayName)
+            title.append(cinfo.value!!.displayName)
             calendar.setTitle(title)
 
             calendar.setSummaryOn(
                 getResources().getString(
                     R.string.settings_calendars_show,
-                    cinfo.value.displayName
+                    cinfo.value!!.displayName
                 )
             )
             calendar.setSummaryOff(
                 getResources().getString(
                     R.string.settings_calendars_hide,
-                    cinfo.value.displayName
+                    cinfo.value!!.displayName
                 )
             )
             calendars.addPreference(calendar)
@@ -285,11 +285,11 @@ class SettingsActivity : PreferenceActivity() {
     companion object {
         const val EXTRA_WIDGET_ID: String = "widgetId"
         private const val TAG = "AgendaWidget"
-        private val BIRTHDAY_PREFERENCES: Array<String?> = arrayOf<String>(
+        private val BIRTHDAY_PREFERENCES: Array<String> = arrayOf<String>(
             WidgetInfo.Companion.BIRTHDAY_SPECIAL, WidgetInfo.Companion.BIRTHDAY_NORMAL,
             WidgetInfo.Companion.BIRTHDAY_HIDE
         )
-        private val DATE_FORMAT_PREFERENCES: Array<String?> = arrayOf<String>(
+        private val DATE_FORMAT_PREFERENCES: Array<String> = arrayOf<String>(
             WidgetInfo.DateFormat.DOT_DAY_MONTH.toString(),
             WidgetInfo.DateFormat.SLASH_DAY_MONTH.toString(),
             WidgetInfo.DateFormat.SLASH_MONTH_DAY.toString(),
