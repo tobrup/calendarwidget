@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import android.Manifest;
 import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.PendingIntent;
@@ -35,6 +36,7 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -47,6 +49,8 @@ import android.text.style.RelativeSizeSpan;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
+
+import androidx.core.content.ContextCompat;
 
 public final class WidgetService extends IntentService {
 	private final static class Event {
@@ -129,6 +133,13 @@ public final class WidgetService extends IntentService {
 			Log.d(TAG, "Invalid widget ID!");
 			return;
 		}
+
+		boolean hasPermissions = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
+		if (!hasPermissions) {
+			Log.w(TAG, "onHandleIntent: no permissions granted");
+			return;
+		}
+
 		computeTimeRanges();
 		final WidgetInfo info = new WidgetInfo(widgetId, this);
 		final int maxLines = Integer.parseInt(info.lines);

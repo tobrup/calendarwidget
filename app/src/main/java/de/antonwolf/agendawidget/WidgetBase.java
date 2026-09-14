@@ -24,15 +24,19 @@ package de.antonwolf.agendawidget;
 
 import java.util.Arrays;
 
+import android.Manifest;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * @author Anton Wolf
@@ -96,6 +100,11 @@ abstract class WidgetBase extends AppWidgetProvider {
 	}
 
 	private void registerContentObserver(final Context context) {
+		boolean hasPermissions = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
+		if (!hasPermissions) {
+			Log.w(TAG, "WidgetBase.registerContentObserver: no permissions granted");
+			return;
+		}
 		if (calendarInstancesObserver == null) {
 			final ComponentName name = new ComponentName(context,
 					this.getClass());
