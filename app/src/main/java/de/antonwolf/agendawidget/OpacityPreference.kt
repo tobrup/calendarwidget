@@ -30,46 +30,43 @@ import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.TextView
 
 class OpacityPreference(context: Context?, info: WidgetInfo) : DialogPreference(context, null), OnSeekBarChangeListener {
-    private var text: TextView? = null
-    private var bar: SeekBar? = null
-    private var checkerboard: ImageView? = null
+
+    companion object {
+        private const val STEP = 1f / 20f
+    }
+
+    private lateinit var text: TextView
+    private lateinit var bar: SeekBar
+    private lateinit var checkerboard: ImageView
     private val defaultValue: Float
 
     init {
-        setDialogLayoutResource(R.layout.preference_opacity)
+        dialogLayoutResource = R.layout.preference_opacity
         setTitle(R.string.settings_display_opacity)
         setDialogTitle(R.string.settings_display_opacity)
         setKey(info.opacityKey)
         defaultValue = info.opacityDefault
         setDefaultValue(defaultValue)
         val opacityPercent = (100 * info.opacity).toInt()
-        setSummary(
-            getContext().getResources().getString(
-                R.string.settings_display_opacity_summary, opacityPercent
-            )
-        )
+        summary = getContext().resources.getString(R.string.settings_display_opacity_summary, opacityPercent)
     }
 
     private fun displayProgress(value: Float) {
         val valuePercent = (value * 100).toInt()
-        text!!.setText(
-            getContext().getResources().getString(
-                R.string.settings_display_opacity_dialog, valuePercent
-            )
-        )
-        checkerboard!!.setImageLevel(valuePercent)
+        text.text = context.resources.getString(R.string.settings_display_opacity_dialog, valuePercent)
+        checkerboard.setImageLevel(valuePercent)
     }
 
     override fun onBindDialogView(view: View) {
         super.onBindDialogView(view)
 
         val value = getPersistedFloat(defaultValue)
-        text = view.findViewById<View?>(R.id.value) as TextView
-        bar = view.findViewById<View?>(R.id.bar) as SeekBar
-        bar!!.setMax((1 / step).toInt())
-        bar!!.setProgress((value / step).toInt())
-        bar!!.setOnSeekBarChangeListener(this)
-        checkerboard = view.findViewById<View?>(R.id.checkerboard) as ImageView
+        text = view.findViewById(R.id.value)
+        bar = view.findViewById(R.id.bar)
+        bar.setMax((1 / STEP).toInt())
+        bar.progress = (value / STEP).toInt()
+        bar.setOnSeekBarChangeListener(this)
+        checkerboard = view.findViewById(R.id.checkerboard)
         displayProgress(value)
     }
 
@@ -77,30 +74,19 @@ class OpacityPreference(context: Context?, info: WidgetInfo) : DialogPreference(
         super.onDialogClosed(positiveResult)
 
         if (positiveResult) {
-            persistFloat(bar!!.getProgress() * step)
-            val opacityPercent = (100 * bar!!.getProgress() * step).toInt()
-            setSummary(
-                getContext().getResources().getString(
-                    R.string.settings_display_opacity_summary, opacityPercent
-                )
-            )
+            persistFloat(bar.progress * STEP)
+            val opacityPercent = (100 * bar.progress * STEP).toInt()
+            summary = context.resources.getString(R.string.settings_display_opacity_summary, opacityPercent)
         }
     }
 
-    override fun onProgressChanged(
-        seekBar: SeekBar?, progress: Int,
-        fromUser: Boolean
-    ) {
-        displayProgress(progress * step)
+    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+        displayProgress(progress * STEP)
     }
 
     override fun onStartTrackingTouch(seekBar: SeekBar?) {
     }
 
     override fun onStopTrackingTouch(seekBar: SeekBar?) {
-    }
-
-    companion object {
-        private val step = 1f / 20f
     }
 }
