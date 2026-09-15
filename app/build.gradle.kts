@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "de.antonwolf.agendawidget"
-        minSdk = 29
+        minSdk = 31
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

@@ -34,6 +34,7 @@ import android.os.Handler
 import android.util.Log
 import androidx.core.content.ContextCompat
 
+class WidgetResizable : WidgetBase()
 /**
  * @author Anton Wolf
  * 
@@ -120,14 +121,7 @@ abstract class WidgetBase : AppWidgetProvider() {
 
     companion object {
         val WIDGET_CLASSES: Array<Class<*>> = arrayOf<Class<*>>(
-            Widget2x1::class.java,
-            Widget3x1::class.java,
-            Widget3x2::class.java,
-            Widget3x3::class.java,
-            Widget4x1::class.java,
-            Widget4x2::class.java,
-            Widget4x3::class.java,
-            Widget4x4::class.java,
+            WidgetResizable::class.java,
         )
 
         const val TAG: String = "AgendaWidget"
