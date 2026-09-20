@@ -24,7 +24,6 @@ package de.antonwolf.agendawidget
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
-import android.database.Cursor
 import android.preference.PreferenceManager
 import android.util.DisplayMetrics
 import android.view.WindowManager
@@ -60,7 +59,8 @@ class WidgetInfo(widgetId: Int, context: Context) {
 
         private const val DATE_FORMAT_KEY = "%ddateFormat"
 
-        private const val CALENDARS_KEY = "%dcalendar%d"
+        private const val CALENDARS_KEY_PREFIX = "%dcalendarActive"
+        private const val CALENDARS_KEY_SUFFIX = "%d"
 
         private fun getCalendars(context: Context, widgetId: Int): Map<Int?, CalendarPreferences?> {
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -87,7 +87,11 @@ class WidgetInfo(widgetId: Int, context: Context) {
         }
 
         fun delete(context: Context, widgetId: Int) {
-            PreferenceManager.getDefaultSharedPreferences(context).edit(commit = true) {
+            val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+            val calenderPrefKeyPrefix = String.format(CALENDARS_KEY_PREFIX, widgetId)
+            // make a new list instance, because the key list may be mutated during edit
+            val calPrefs = ArrayList(preferences.all.keys.filter { it.startsWith(calenderPrefKeyPrefix) })
+            preferences.edit(commit = true) {
                 remove(String.format(BIRTHDAYS_KEY, widgetId))
                 remove(String.format(LINES_KEY, widgetId))
                 remove(String.format(SIZE_KEY, widgetId))
@@ -98,11 +102,12 @@ class WidgetInfo(widgetId: Int, context: Context) {
                 remove(String.format(END_TIME_KEY, widgetId))
                 remove(String.format(TWENTYFOUR_HOURS_KEY, widgetId))
                 remove(String.format(DATE_FORMAT_KEY, widgetId))
-                getCalendars(context, widgetId).entries.forEach { cInfo ->
-                    remove(cInfo.value!!.key)
+                calPrefs.forEach {
+                    remove(it)
                 }
             }
         }
+
     }
 
     class CalendarPreferences(
@@ -112,7 +117,7 @@ class WidgetInfo(widgetId: Int, context: Context) {
         val displayName: String?,
         val color: Int
     ) {
-        val key: String = String.format(CALENDARS_KEY, widgetId, calendarId)
+        val key: String = String.format(CALENDARS_KEY_PREFIX, widgetId) + String.format(CALENDARS_KEY_SUFFIX, calendarId)
         val enabledDefault: Boolean = true
         val enabled: Boolean = prefs.getBoolean(key, enabledDefault)
     }
