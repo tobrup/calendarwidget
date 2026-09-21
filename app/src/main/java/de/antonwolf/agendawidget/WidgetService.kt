@@ -208,7 +208,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         for (event in agendaEvents) {
             val view = RemoteViews(packageName, R.layout.event)
             view.setTextViewText(R.id.event_text, formatEventText(event, calendarColor, info))
-            view.setViewVisibility(R.id.event_alarm, if (event.hasAlarm) View.VISIBLE else View.GONE)
+            view.setViewVisibility(R.id.event_alarm, if (event.hasAlarm && info.showReminder) View.VISIBLE else View.GONE)
             widget.addView(R.id.widget, view)
         }
 

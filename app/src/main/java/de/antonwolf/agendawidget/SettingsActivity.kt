@@ -141,6 +141,14 @@ class SettingsActivity : PreferenceActivity() {
         endTimePref.setSummaryOff(R.string.settings_end_time_no)
         display.addPreference(endTimePref)
 
+        val reminderPref = CheckBoxPreference(this)
+        reminderPref.setDefaultValue(info.showReminderDefault)
+        reminderPref.setKey(info.showReminderKey)
+        reminderPref.setTitle(R.string.settings_show_reminder)
+        reminderPref.setSummaryOn(R.string.settings_show_reminder_yes)
+        reminderPref.setSummaryOff(R.string.settings_show_reminder_no)
+        display.addPreference(reminderPref)
+
         val calendarColorPref = CheckBoxPreference(this)
         calendarColorPref.setDefaultValue(info.calendarColorDefault)
         calendarColorPref.setKey(info.calendarColorKey)

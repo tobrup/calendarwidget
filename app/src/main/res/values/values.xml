@@ -117,10 +117,13 @@
 	<string name="settings_weekday_no">Always display full date.</string>
 
 	<string name="settings_end_time">Display end time</string>
-	<string name="settings_end_time_yes">Display event end times where applicable.
-	</string>
+	<string name="settings_end_time_yes">Display event end times where applicable.</string>
 	<string name="settings_end_time_no">Never display event end times.</string>
 	
+	<string name="settings_show_reminder">Display reminder icon</string>
+	<string name="settings_show_reminder_yes">Display icon for events with alarm.</string>
+	<string name="settings_show_reminder_no">Never display reminder icon.</string>
+
 	<string name="settings_date_format">Date format</string>
 	<string name="settings_date_format_summary">Date format is: %s</string>
 	<string-array name="settings_date_format_entries">

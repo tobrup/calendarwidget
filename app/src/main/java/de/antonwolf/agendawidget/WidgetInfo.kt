@@ -55,6 +55,8 @@ class WidgetInfo(widgetId: Int, context: Context) {
 
         private const val END_TIME_KEY = "%dendTime"
 
+        private const val SHOW_REMINDER_KEY = "%dreminder"
+
         private const val TWENTYFOUR_HOURS_KEY = "%dtwentyfourHours"
 
         private const val DATE_FORMAT_KEY = "%ddateFormat"
@@ -100,6 +102,7 @@ class WidgetInfo(widgetId: Int, context: Context) {
                 remove(String.format(TOMORROW_YESTERDAY_KEY, widgetId))
                 remove(String.format(WEEKDAY_KEY, widgetId))
                 remove(String.format(END_TIME_KEY, widgetId))
+                remove(String.format(SHOW_REMINDER_KEY, widgetId))
                 remove(String.format(TWENTYFOUR_HOURS_KEY, widgetId))
                 remove(String.format(DATE_FORMAT_KEY, widgetId))
                 calPrefs.forEach {
@@ -153,6 +156,10 @@ class WidgetInfo(widgetId: Int, context: Context) {
     val weekday: Boolean
     val weekdayDefault: Boolean = true
     val weekdayKey: String
+
+    val showReminder: Boolean
+    val showReminderDefault: Boolean = true
+    val showReminderKey: String
     val endTime: Boolean
     val endTimeDefault: Boolean
     val endTimeKey: String
@@ -205,6 +212,9 @@ class WidgetInfo(widgetId: Int, context: Context) {
         endTimeKey = String.format(END_TIME_KEY, widgetId)
         endTimeDefault = widthInCells > 2
         endTime = prefs.getBoolean(endTimeKey, endTimeDefault)
+
+        showReminderKey = String.format(SHOW_REMINDER_KEY, widgetId)
+        showReminder = prefs.getBoolean(showReminderKey, showReminderDefault)
 
         twentyfourHoursKey = String.format(TWENTYFOUR_HOURS_KEY, widgetId)
         twentyfourHoursDefault = context.resources.getBoolean(R.bool.format_24hours)
