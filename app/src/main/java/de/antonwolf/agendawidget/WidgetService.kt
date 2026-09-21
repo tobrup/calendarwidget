@@ -188,6 +188,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         val packageName = applicationContext.packageName
         val widget = RemoteViews(packageName, widgetInfo.initialLayout)
         widget.removeAllViews(R.id.widget)
+        widget.setViewVisibility(R.id.loadingText, View.GONE)
         widget.setOnClickPendingIntent(R.id.widget, getOnClickPendingIntent(widgetId))
 
         val calendarColor = info.calendarColor
