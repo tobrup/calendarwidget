@@ -29,7 +29,7 @@ import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.TextView
 
-class OpacityPreference(context: Context?, info: WidgetInfo) : DialogPreference(context, null), OnSeekBarChangeListener {
+class OpacityPreference(context: Context?, info: WidgetPreferences, key: String) : DialogPreference(context, null), OnSeekBarChangeListener {
 
     companion object {
         private const val STEP = 1f / 20f
@@ -44,8 +44,8 @@ class OpacityPreference(context: Context?, info: WidgetInfo) : DialogPreference(
         dialogLayoutResource = R.layout.preference_opacity
         setTitle(R.string.settings_display_opacity)
         setDialogTitle(R.string.settings_display_opacity)
-        setKey(info.opacityKey)
-        defaultValue = info.opacityDefault
+        setKey(key)
+        defaultValue = WidgetPreferences.Default.opacity
         setDefaultValue(defaultValue)
         val opacityPercent = (100 * info.opacity).toInt()
         summary = getContext().resources.getString(R.string.settings_display_opacity_summary, opacityPercent)

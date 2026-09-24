@@ -38,16 +38,17 @@ class SettingsActivity : PreferenceActivity() {
         const val EXTRA_WIDGET_ID: String = "widgetId"
         private const val TAG = "AgendaWidget"
         private val BIRTHDAY_PREFERENCES: Array<String> = arrayOf(
-            WidgetInfo.BIRTHDAY_SPECIAL,
-            WidgetInfo.BIRTHDAY_NORMAL,
-            WidgetInfo.BIRTHDAY_HIDE
-        )
+            BirthdaySetting.BIRTHDAY_SPECIAL,
+            BirthdaySetting.BIRTHDAY_NORMAL,
+            BirthdaySetting.BIRTHDAY_HIDE
+        ).map { it.persistenceValue }.toTypedArray()
+
         private val DATE_FORMAT_PREFERENCES: Array<String> = arrayOf(
-            WidgetInfo.DateFormat.DOT_DAY_MONTH.toString(),
-            WidgetInfo.DateFormat.SLASH_DAY_MONTH.toString(),
-            WidgetInfo.DateFormat.SLASH_MONTH_DAY.toString(),
-            WidgetInfo.DateFormat.SLASH_YEAR_MONTH_DAY.toString()
-        )
+            DateFormat.DOT_DAY_MONTH,
+            DateFormat.SLASH_DAY_MONTH,
+            DateFormat.SLASH_MONTH_DAY,
+            DateFormat.SLASH_YEAR_MONTH_DAY
+        ).map { it.persistenceValue }.toTypedArray()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +59,7 @@ class SettingsActivity : PreferenceActivity() {
         if (widgetId == -1) {
             return
         }
-        val info = WidgetInfo(widgetId, this)
+        val info = WidgetPreferencesPersistence(widgetId, this).load()
 
         val screen = preferenceManager.createPreferenceScreen(this)
         setPreferenceScreen(screen)
@@ -69,7 +70,7 @@ class SettingsActivity : PreferenceActivity() {
 
         val scrollablePref = CheckBoxPreference(this)
         scrollablePref.setDefaultValue(info.scrollable)
-        scrollablePref.setKey(info.scrollableKey)
+        scrollablePref.setKey(WidgetPreferencesPersistence.Keys.SCROLLABLE.getKey(widgetId))
         scrollablePref.setTitle(R.string.settings_scrollable)
         scrollablePref.setSummaryOn(R.string.settings_scrollable_yes)
         scrollablePref.setSummaryOff(R.string.settings_scrollable_no)
@@ -77,14 +78,14 @@ class SettingsActivity : PreferenceActivity() {
 
         val linesPref = ListPreference(this)
         linesPref.setTitle(R.string.settings_display_lines)
-        linesPref.setKey(info.linesKey)
+        linesPref.setKey(WidgetPreferencesPersistence.Keys.LINES.getKey(widgetId))
         linesPref.setEntries(R.array.settings_display_lines_entries)
         linesPref.entryValues = arrayOf(
             "3", "4", "5", "6", "7", "8", "9",
             "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
             "20", "21", "22", "23", "24", "25"
         )
-        linesPref.setDefaultValue(info.linesDefault)
+        linesPref.setDefaultValue(info.lines)
         val linesChangeListener = OnPreferenceChangeListener { pref, newValue ->
             pref.summary = resources.getString(R.string.settings_display_lines_summary, newValue)
             true
@@ -95,10 +96,10 @@ class SettingsActivity : PreferenceActivity() {
 
         val fontSizePref = ListPreference(this)
         fontSizePref.setTitle(R.string.settings_display_size)
-        fontSizePref.setKey(info.sizeKey)
+        fontSizePref.setKey(WidgetPreferencesPersistence.Keys.SIZE.getKey(widgetId))
         fontSizePref.setEntries(R.array.settings_display_size_entries)
         fontSizePref.entryValues = arrayOf("50", "75", "100", "125", "150", "200", "250")
-        fontSizePref.setDefaultValue(info.sizeDefault)
+        fontSizePref.setDefaultValue(info.size)
         val fontSizeChangeListener = OnPreferenceChangeListener { pref, newValue ->
             pref.summary = resources.getString(R.string.settings_display_size_summary, newValue)
             true
@@ -107,59 +108,59 @@ class SettingsActivity : PreferenceActivity() {
         fontSizePref.onPreferenceChangeListener = fontSizeChangeListener
         display.addPreference(fontSizePref)
 
-        display.addPreference(OpacityPreference(this, info))
+        display.addPreference(OpacityPreference(this, info, WidgetPreferencesPersistence.Keys.OPACITY.getKey(widgetId)))
 
         val birthdayPref = ListPreference(this)
         birthdayPref.setTitle(R.string.settings_birthdays)
-        birthdayPref.setKey(info.birthdaysKey)
+        birthdayPref.setKey(WidgetPreferencesPersistence.Keys.BIRTHDAYS.getKey(widgetId))
         birthdayPref.setEntries(R.array.settings_birthdays_entries)
         birthdayPref.entryValues = BIRTHDAY_PREFERENCES
-        birthdayPref.setDefaultValue(info.birthdaysDefault)
+        birthdayPref.setDefaultValue(info.birthdays.persistenceValue)
         val birthdayChangedListener = OnPreferenceChangeListener { pref, newValue ->
             Log.d(TAG, "SettingsActivity: birthdayPref.onPreferenceChange: $newValue")
             val summaries = resources.getStringArray(R.array.settings_birthdays_summaries)
             pref.summary = summaries[BIRTHDAY_PREFERENCES.indexOf(newValue)]
             true
         }
-        birthdayChangedListener.onPreferenceChange(birthdayPref, info.birthdays)
+        birthdayChangedListener.onPreferenceChange(birthdayPref, info.birthdays.persistenceValue)
         birthdayPref.onPreferenceChangeListener = birthdayChangedListener
         display.addPreference(birthdayPref)
 
         val weekdayPref = CheckBoxPreference(this)
         weekdayPref.setDefaultValue(info.weekday)
-        weekdayPref.setKey(info.weekdayKey)
+        weekdayPref.setKey(WidgetPreferencesPersistence.Keys.WEEKDAY.getKey(widgetId))
         weekdayPref.setTitle(R.string.settings_weekday)
         weekdayPref.setSummaryOn(R.string.settings_weekday_yes)
         weekdayPref.setSummaryOff(R.string.settings_weekday_no)
         display.addPreference(weekdayPref)
 
         val tomorrowYesterdayPref = CheckBoxPreference(this)
-        tomorrowYesterdayPref.setDefaultValue(info.tomorrowYesterdayDefault)
-        tomorrowYesterdayPref.setKey(info.tomorrowYesterdayKey)
+        tomorrowYesterdayPref.setDefaultValue(info.tomorrowYesterday)
+        tomorrowYesterdayPref.setKey(WidgetPreferencesPersistence.Keys.TOMORROW_YESTERDAY.getKey(widgetId))
         tomorrowYesterdayPref.setTitle(R.string.settings_tommorow_yesterday)
         tomorrowYesterdayPref.setSummaryOn(R.string.settings_tommorow_yesterday_yes)
         tomorrowYesterdayPref.setSummaryOff(R.string.settings_tommorow_yesterday_no)
         display.addPreference(tomorrowYesterdayPref)
 
         val endTimePref = CheckBoxPreference(this)
-        endTimePref.setDefaultValue(info.endTimeDefault)
-        endTimePref.setKey(info.endTimeKey)
+        endTimePref.setDefaultValue(info.endTime)
+        endTimePref.setKey(WidgetPreferencesPersistence.Keys.END_TIME.getKey(widgetId))
         endTimePref.setTitle(R.string.settings_end_time)
         endTimePref.setSummaryOn(R.string.settings_end_time_yes)
         endTimePref.setSummaryOff(R.string.settings_end_time_no)
         display.addPreference(endTimePref)
 
         val reminderPref = CheckBoxPreference(this)
-        reminderPref.setDefaultValue(info.showReminderDefault)
-        reminderPref.setKey(info.showReminderKey)
+        reminderPref.setDefaultValue(info.showReminder)
+        reminderPref.setKey(WidgetPreferencesPersistence.Keys.SHOW_REMINDER.getKey(widgetId))
         reminderPref.setTitle(R.string.settings_show_reminder)
         reminderPref.setSummaryOn(R.string.settings_show_reminder_yes)
         reminderPref.setSummaryOff(R.string.settings_show_reminder_no)
         display.addPreference(reminderPref)
 
         val calendarColorPref = CheckBoxPreference(this)
-        calendarColorPref.setDefaultValue(info.calendarColorDefault)
-        calendarColorPref.setKey(info.calendarColorKey)
+        calendarColorPref.setDefaultValue(info.calendarColor)
+        calendarColorPref.setKey(WidgetPreferencesPersistence.Keys.CALENDAR_COLOR.getKey(widgetId))
         calendarColorPref.setTitle(R.string.settings_calendar_color)
         calendarColorPref.setSummaryOn(R.string.settings_calendar_color_show)
         calendarColorPref.setSummaryOff(R.string.settings_calendar_color_hide)
@@ -168,28 +169,28 @@ class SettingsActivity : PreferenceActivity() {
         val now = System.currentTimeMillis()
         val dateFormatPref = ListPreference(this)
         dateFormatPref.setTitle(R.string.settings_date_format)
-        dateFormatPref.setKey(info.dateFormatKey)
+        dateFormatPref.setKey(WidgetPreferencesPersistence.Keys.DATE_FORMAT.getKey(widgetId))
         val dateFormatEntries = resources.getStringArray(R.array.settings_date_format_entries)
         val dateFormatDisplayStrings = dateFormatEntries.map {
             String.format(it, now)
         }
         dateFormatPref.entries = dateFormatDisplayStrings.toTypedArray()
         dateFormatPref.entryValues = DATE_FORMAT_PREFERENCES
-        dateFormatPref.setDefaultValue(info.dateFormatDefault.toString())
+        dateFormatPref.setDefaultValue(info.dateFormat.persistenceValue)
         val dateFormatSummary = resources.getString(R.string.settings_date_format_summary)
 
         val dateFormatChangedListener = OnPreferenceChangeListener { pref, newValue ->
-            val ordinal = WidgetInfo.DateFormat.valueOf((newValue as String?)!!).ordinal
+            val ordinal = DateFormat.fromPersistence(newValue as String).ordinal
             pref.summary = String.format(dateFormatSummary, dateFormatDisplayStrings[ordinal])
             true
         }
-        dateFormatChangedListener.onPreferenceChange(dateFormatPref, info.dateFormat.toString())
+        dateFormatChangedListener.onPreferenceChange(dateFormatPref, info.dateFormat.persistenceValue)
         dateFormatPref.onPreferenceChangeListener = dateFormatChangedListener
         display.addPreference(dateFormatPref)
 
         val twentyFourHoursPref = CheckBoxPreference(this)
-        twentyFourHoursPref.setDefaultValue(info.twentyfourHoursDefault)
-        twentyFourHoursPref.setKey(info.twentyfourHoursKey)
+        twentyFourHoursPref.setDefaultValue(info.twentyfourHours)
+        twentyFourHoursPref.setKey(WidgetPreferencesPersistence.Keys.TWENTYFOUR_HOURS.getKey(widgetId))
         twentyFourHoursPref.setTitle(R.string.settings_twentyfour_hours)
         twentyFourHoursPref.setSummaryOn(String.format(resources.getString(R.string.settings_twentyfour_hours_yes), now))
         twentyFourHoursPref.setSummaryOff(String.format(resources.getString(R.string.settings_twentyfour_hours_no), now))
@@ -202,7 +203,7 @@ class SettingsActivity : PreferenceActivity() {
         info.calendars.entries.forEach { cInfo ->
             val calendarPref = CheckBoxPreference(this)
             val value = cInfo.value!!
-            calendarPref.setDefaultValue(value.enabledDefault)
+            calendarPref.setDefaultValue(value.enabled)
             calendarPref.setKey(value.key)
 
             val title = SpannableStringBuilder("■ ")

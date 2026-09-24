@@ -156,7 +156,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         val manager = AppWidgetManager.getInstance(applicationContext)
         val widgetInfo = manager.getAppWidgetInfo(widgetId)
 
-        val info = WidgetInfo(widgetId, applicationContext)
+        val info = WidgetPreferencesPersistence(widgetId, applicationContext).load()
         val scrollable = info.scrollable
         val maxLines = if (scrollable) SCROLLABLE_LINES else info.lines.toInt()
         val birthdayEvents: MutableList<Event> = ArrayList(maxLines * 2)
@@ -288,7 +288,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         }
     }
 
-    private fun readEvent(cursor: Cursor, info: WidgetInfo): Event? {
+    private fun readEvent(cursor: Cursor, info: WidgetPreferences): Event? {
         if (!cursor.moveToNext()) {
             return null // no next item
         }
@@ -330,7 +330,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         }
 
         // Skip birthday events if necessary
-        if (isBirthday && info.birthdays == WidgetInfo.BIRTHDAY_HIDE) {
+        if (isBirthday && info.birthdays == BirthdaySetting.BIRTHDAY_HIDE) {
             return null
         }
 
@@ -407,7 +407,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         }
     }
 
-    private fun formatEventText(event: Event, showColor: Boolean, info: WidgetInfo): CharSequence {
+    private fun formatEventText(event: Event, showColor: Boolean, info: WidgetPreferences): CharSequence {
         val builder = SpannableStringBuilder()
 
         if (showColor) {
@@ -441,7 +441,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         return builder
     }
 
-    private fun formatTime(builder: SpannableStringBuilder, event: Event, info: WidgetInfo) {
+    private fun formatTime(builder: SpannableStringBuilder, event: Event, info: WidgetPreferences) {
         val formatter = Formatter(builder)
 
         val isStartToday = (event.startMillis in todayStart..tomorrowStart)
@@ -484,7 +484,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         appendHour(formatter, builder, event.endMillis, info)
     }
 
-    private fun appendHour(formatter: Formatter, builder: SpannableStringBuilder, time: Long, info: WidgetInfo) {
+    private fun appendHour(formatter: Formatter, builder: SpannableStringBuilder, time: Long, info: WidgetPreferences) {
         if (info.twentyfourHours) {
             formatter.format($$"%1$tk:%1$tM", time)
         } else {
@@ -496,7 +496,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         }
     }
 
-    private fun appendDay(formatter: Formatter, builder: SpannableStringBuilder, time: Long, day: Time, info: WidgetInfo) {
+    private fun appendDay(formatter: Formatter, builder: SpannableStringBuilder, time: Long, day: Time, info: WidgetPreferences) {
         val tomorrowYesterday = info.tomorrowYesterday
         val specialStart: Long = if (tomorrowYesterday) yesterdayStart else todayStart
         val specialEnd: Long = if (tomorrowYesterday) dayAfterTomorrowStart else tomorrowStart

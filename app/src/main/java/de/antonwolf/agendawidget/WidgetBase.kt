@@ -77,7 +77,7 @@ abstract class WidgetBase : AppWidgetProvider() {
 
     override fun onDeleted(context: Context?, appWidgetIds: IntArray) {
         Log.i(TAG, "WidgetBase.onDeleted(${appWidgetIds.joinToString()})")
-        for (widgetId in appWidgetIds) WidgetInfo.delete(context!!, widgetId)
+        for (widgetId in appWidgetIds) WidgetPreferencesPersistence(widgetId, context!!).delete()
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager?, ids: IntArray) {
