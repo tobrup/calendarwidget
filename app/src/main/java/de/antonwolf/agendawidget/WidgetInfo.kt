@@ -41,6 +41,8 @@ class WidgetInfo(widgetId: Int, context: Context) {
 
         private const val LINES_KEY = "%dlines"
 
+        private const val SCROLLABLE_KEY = "%dscrollable"
+
         private const val SIZE_KEY = "%dsize"
 
         private const val OPACITY_KEY = "%dopacityFloat"
@@ -95,6 +97,7 @@ class WidgetInfo(widgetId: Int, context: Context) {
             val calPrefs = ArrayList(preferences.all.keys.filter { it.startsWith(calenderPrefKeyPrefix) })
             preferences.edit(commit = true) {
                 remove(String.format(BIRTHDAYS_KEY, widgetId))
+                remove(String.format(SCROLLABLE_KEY, widgetId))
                 remove(String.format(LINES_KEY, widgetId))
                 remove(String.format(SIZE_KEY, widgetId))
                 remove(String.format(OPACITY_KEY, widgetId))
@@ -135,6 +138,10 @@ class WidgetInfo(widgetId: Int, context: Context) {
     val birthdays: String
     val birthdaysDefault: String
     val birthdaysKey: String
+
+    val scrollable: Boolean
+    val scrollableKey: String
+
     val lines: String
     val linesDefault: String
     val linesKey: String
@@ -186,6 +193,9 @@ class WidgetInfo(widgetId: Int, context: Context) {
         birthdaysKey = String.format(BIRTHDAYS_KEY, widgetId)
         birthdaysDefault = if (widthInCells > 2) BIRTHDAY_SPECIAL else BIRTHDAY_NORMAL
         birthdays = prefs.getString(birthdaysKey, birthdaysDefault)!!
+
+        scrollableKey = String.format(SCROLLABLE_KEY, widgetId)
+        scrollable = prefs.getBoolean(scrollableKey, false)
 
         val linesInt = 5 + ((heightInCells - 1) * 5.9).toInt()
         linesDefault = linesInt.toString()

@@ -67,6 +67,14 @@ class SettingsActivity : PreferenceActivity() {
         display.setTitle(R.string.settings_display)
         screen.addPreference(display)
 
+        val scrollablePref = CheckBoxPreference(this)
+        scrollablePref.setDefaultValue(info.scrollable)
+        scrollablePref.setKey(info.scrollableKey)
+        scrollablePref.setTitle(R.string.settings_scrollable)
+        scrollablePref.setSummaryOn(R.string.settings_scrollable_yes)
+        scrollablePref.setSummaryOff(R.string.settings_scrollable_no)
+        display.addPreference(scrollablePref)
+
         val linesPref = ListPreference(this)
         linesPref.setTitle(R.string.settings_display_lines)
         linesPref.setKey(info.linesKey)

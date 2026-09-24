@@ -45,6 +45,11 @@
 	</string-array>
 
 	<string name="settings_display">Display</string>
+
+	<string name="settings_scrollable">Scrollable</string>
+	<string name="settings_scrollable_yes">Events are displayed in a scrollable list.</string>
+	<string name="settings_scrollable_no">Display only the configured line count, no scrolling.</string>
+
 	<string name="settings_display_lines">Line count</string>
 	<string name="settings_display_lines_summary">Display %s lines on the widget.</string>
 

@@ -71,6 +71,8 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
 
         private const val TAG = "AgendaWidget"
 
+        private val SCROLLABLE_LINES = 100
+
         private var yesterdayStart: Long = 0
         private var todayStart: Long = 0
         private var tomorrowStart: Long = 0
@@ -102,7 +104,7 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         private val IS_EMPTY_PATTERN: Pattern = Pattern.compile("^\\s*$")
         private const val DATETIME_COLOR = -0x47000001
     }
-    
+
     private data class Event(
         val allDay: Boolean = false,
         val color: Int = 0,
@@ -155,7 +157,8 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
         val widgetInfo = manager.getAppWidgetInfo(widgetId)
 
         val info = WidgetInfo(widgetId, applicationContext)
-        val maxLines = info.lines.toInt()
+        val scrollable = info.scrollable
+        val maxLines = if (scrollable) SCROLLABLE_LINES else info.lines.toInt()
         val birthdayEvents: MutableList<Event> = ArrayList(maxLines * 2)
         val agendaEvents: MutableList<Event> = ArrayList(maxLines)
 
@@ -187,11 +190,15 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
 
         val packageName = applicationContext.packageName
         val widget = RemoteViews(packageName, widgetInfo.initialLayout)
-        widget.removeAllViews(R.id.widget)
+        widget.removeAllViews(R.id.widgetLinearLayout)
         widget.setViewVisibility(R.id.loadingText, View.GONE)
-        widget.setOnClickPendingIntent(R.id.widget, getOnClickPendingIntent(widgetId))
+        widget.setViewVisibility(R.id.widgetLinearLayout, if (scrollable) View.GONE else View.VISIBLE)
+        widget.setViewVisibility(R.id.widgetList, if (scrollable) View.VISIBLE else View.GONE)
+
+        var listBuilder = RemoteViews.RemoteCollectionItems.Builder()
 
         val calendarColor = info.calendarColor
+        var listItemId = 0L
 
         val bdayIterator = birthdayEvents.iterator()
         while (bdayIterator.hasNext()) {
@@ -202,14 +209,31 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
             } else {
                 view.setTextViewText(R.id.birthday2_text, "")
             }
-            widget.addView(R.id.widget, view)
+            if (scrollable) {
+                view.setOnClickFillInIntent(R.id.birthdayRoot, Intent())
+                listBuilder = listBuilder.addItem(listItemId++, view)
+            } else {
+                widget.addView(R.id.widgetLinearLayout, view)
+            }
         }
 
         for (event in agendaEvents) {
             val view = RemoteViews(packageName, R.layout.event)
             view.setTextViewText(R.id.event_text, formatEventText(event, calendarColor, info))
             view.setViewVisibility(R.id.event_alarm, if (event.hasAlarm && info.showReminder) View.VISIBLE else View.GONE)
-            widget.addView(R.id.widget, view)
+            if (scrollable) {
+                view.setOnClickFillInIntent(R.id.eventRoot, Intent())
+                listBuilder = listBuilder.addItem(listItemId++, view)
+            } else {
+                widget.addView(R.id.widgetLinearLayout, view)
+            }
+        }
+
+        if (scrollable) {
+            widget.setRemoteAdapter(R.id.widgetList, listBuilder.setViewTypeCount(2).build())
+            widget.setPendingIntentTemplate(R.id.widgetList, getOnClickPendingIntent(widgetId))
+        } else {
+            widget.setOnClickPendingIntent(R.id.widgetRootView, getOnClickPendingIntent(widgetId))
         }
 
         val opacityPercent = (100 * info.opacity).toInt()
@@ -225,12 +249,12 @@ class WidgetService(context: Context, params: WorkerParameters) : Worker(context
 
         val packageName = applicationContext.packageName
         val widget = RemoteViews(packageName, widgetInfo.initialLayout)
-        widget.removeAllViews(R.id.widget)
-        widget.setOnClickPendingIntent(R.id.widget, getOnClickPendingIntent(widgetId))
+        widget.removeAllViews(R.id.widgetLinearLayout)
+        widget.setOnClickPendingIntent(R.id.widgetLinearLayout, getOnClickPendingIntent(widgetId))
 
         val view = RemoteViews(packageName, R.layout.event)
         view.setTextViewText(R.id.event_text, "Missing Permissions")
-        widget.addView(R.id.widget, view)
+        widget.addView(R.id.widgetLinearLayout, view)
 
         widget.setInt(R.id.background, "setImageLevel", 100)
 
